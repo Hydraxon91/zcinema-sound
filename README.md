@@ -25,12 +25,44 @@ kernel-level anti-cheat (EAC/BattlEye/Vanguard).
 | Feature | How |
 |---|---|
 | Volume that stays in sync | Windows' own volume everywhere (remote, OSD, media keys, per-app). `Preamp` sets the ceiling. |
-| Bass / Treble | Low/high shelf filters |
+| Bass / Treble | Broad peaking bands, used like a bass/treble control (a shelf is not used because this Equalizer APO build ignores `LSC`/`HSC`) |
 | EQ | Parametric bands (edit text or use the Peace GUI) |
 | TruSurround-ish width | Stereo crossfeed (`Copy:` lines) |
 | Dialogue clarity | ~3 kHz presence boost |
 | Live GUI | `tools\ZCinema-GUI.ps1` — Bass, Treble, Dialogue, Width, ceiling + 8-band EQ sliders |
 | Presets | Flat / Music / Movies / Night / Vocal / V-Shape (with EQ), plus 3 savable Custom slots |
+
+## What you don't get
+
+Straight about the limits:
+
+- **No real SRS TruSurround HD.** The stereo widener here is an approximation of
+  the surround staging, not the patented algorithm. (The 2007 SRS APO DLL does
+  load on Win11, but it can't be attached to the audio endpoint without a signed
+  driver package — and even then it's unproven on the modern engine.)
+- **No SRS treble / definition controls.** The original SRS software exposed
+  extra treble-style controls (Definition, Dialog Clarity). Here treble is a
+  single wide peaking band — similar in effect, but not the SRS processing.
+- **No access to the speaker's own bass and treble.** The Z Cinéma's built-in
+  bass/treble — the controls you reach under the volume (on the remote, or in the
+  original Logitech panel) — live in the speaker's firmware. Software cannot read
+  or move them. The GUI's Bass/Treble sliders are a separate layer added on top.
+- **No true surround.** The hardware is 2.1 (two satellites + sub). There is no
+  rear-channel simulation or multichannel decode — only stereo widening.
+- **No ASIO / WASAPI-exclusive processing.** Equalizer APO is a shared-mode
+  system effect; apps that take the device in exclusive mode bypass it.
+- **No room correction.** The EQ is manual — no measurement mic, no auto-tuning.
+- **Not stored on the device.** Settings are per-PC (an Equalizer APO config).
+  On another PC, a console, or Bluetooth, the sound is stock.
+- **No kernel driver, by design.** Good for anti-cheat, but it also means no
+  driver-level hooks or vendor control-panel integration; nothing is test-signed.
+- **Remote extras aren't implemented.** Media keys work inbox; the vendor HID
+  collection (`FFBC:0088`) is unused, so no custom remote/display features.
+- **No signed, standalone app yet.** Today it's PowerShell + Equalizer APO; the
+  one-file `.exe` is planned (`docs\ROADMAP.md`).
+- **Anti-cheat caveat.** Equalizer APO is user-mode and widely used with games,
+  but no anti-cheat guarantees anything — and you can disable it any time with
+  `src\Bypass-ZCinema.ps1`.
 
 ## Requirements
 
