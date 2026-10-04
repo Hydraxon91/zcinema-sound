@@ -1,0 +1,6 @@
+# Late-night add-on - layer AFTER the main profile with:
+#     Include: ZCinema.txt
+#     Include: presets\night-addon.txt
+# Tames bass so it carries through walls less.
+Filter: ON  LSC Fc 110 Hz Gain -5 dB Q 0.70
+Filter: ON  PK  Fc  45 Hz Gain -3 dB Q 1.20

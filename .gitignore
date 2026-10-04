@@ -1,0 +1,19 @@
+# Config backups created by Install/Uninstall
+*.bak
+*.bak-*
+
+# Keep repository free of any third-party or generated binaries
+*.dll
+*.exe
+*.sys
+*.cat
+*.msi
+*.cab
+
+# Local scratch
+.work/
+*.log
+
+# Windows
+Thumbs.db
+desktop.ini

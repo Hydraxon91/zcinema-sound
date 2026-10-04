@@ -1,0 +1,46 @@
+# =============================================================================
+#  ZCinema Sound - main profile for Equalizer APO
+#  Device: "Speakers (Z Cinema)"  (USB\VID_046D&PID_0A0F, 24-bit/48 kHz stereo)
+#
+#  VOLUME MODEL: leave Windows volume in charge (remote, OSD, media keys and the
+#  per-app mixer all stay in sync). The Preamp below sets the CEILING, so that
+#  Windows 100% equals your comfortable maximum. Run tools\Calibrate-Ceiling.ps1
+#  to measure the exact value, or tune by ear.
+#
+#  Edit values, save, and Equalizer APO applies them live.
+# =============================================================================
+
+# ---- SECTION 1: Ceiling / headroom -----------------------------------------
+#  Lower = quieter max = more usable slider travel. Try -6 .. -13 dB.
+#  Also acts as headroom for the boosts below (prevents clipping).
+Preamp: -8 dB
+
+# ---- SECTION 2: Bass  (TruBass-like)  gain -12 .. +12 dB ---------------------
+#  Broad peaking bands (a true shelf is not used here because some Equalizer
+#  APO builds ignore the LSC/HSC shelf types).
+Filter: ON  PK  Fc 100 Hz Gain  6 dB Q 0.70    # main bass band
+Filter: ON  PK  Fc  45 Hz Gain  4 dB Q 1.20    # sub-bass weight
+Filter: ON  PK  Fc 250 Hz Gain -2 dB Q 1.00    # de-mud
+
+# ---- SECTION 3: Treble  gain -12 .. +12 dB ----------------------------------
+Filter: ON  PK  Fc 8000 Hz Gain 4 dB Q 0.70
+
+# ---- SECTION 4: Dialogue clarity  (SRS DialogClarity-like) ------------------
+Filter: ON  PK  Fc 3000 Hz Gain 3 dB Q 1.50
+
+# ---- SECTION 5: Stereo width / TruSurround-like  (g = 0.05 .. 0.20) ---------
+#  Negative crossfeed widens the image (added as a negative factor; Equalizer
+#  APO's Copy grammar adds terms, so use "+-0.10" not "-0.10").
+#  Comment both lines for strict mono. Lower g toward 0.05 if mono collapses.
+Copy: L=L+-0.10*R
+Copy: R=R+-0.10*L
+
+# ---- SECTION 6: EQ starter bands  (flat; adjust to taste / room) ------------
+Filter: ON  PK  Fc    60 Hz Gain 0 dB Q 1.0
+Filter: ON  PK  Fc   170 Hz Gain 0 dB Q 1.0
+Filter: ON  PK  Fc   470 Hz Gain 0 dB Q 1.0
+Filter: ON  PK  Fc  1200 Hz Gain 0 dB Q 1.0
+Filter: ON  PK  Fc  2400 Hz Gain 0 dB Q 1.0
+Filter: ON  PK  Fc  4700 Hz Gain 0 dB Q 1.0
+Filter: ON  PK  Fc 10000 Hz Gain 0 dB Q 1.0
+Filter: ON  PK  Fc 14000 Hz Gain 0 dB Q 1.0

@@ -1,0 +1,6 @@
+# Music add-on - layer AFTER the main profile with:
+#     Include: ZCinema.txt
+#     Include: presets\music-addon.txt
+# Extra low-end weight and air, for listening.
+Filter: ON  LSC Fc 90 Hz Gain   3 dB Q 0.70
+Filter: ON  HSC Fc 9000 Hz Gain 2 dB Q 0.70

@@ -1,0 +1,21 @@
+ZCinema Sound — NOTICE
+=======================
+
+This repository contains ONLY original code and configuration by the
+ZCinema Sound contributors (MIT licensed). It bundles no third-party binaries.
+
+Third-party dependency (not included, installed by the user):
+  * Equalizer APO — https://sourceforge.net/projects/equalizerapo/
+    Copyright (C) Jonas Thedering and contributors. Licensed under GPLv2.
+    ZCinema Sound is an independent configuration/setup tool and is not
+    affiliated with the Equalizer APO project.
+
+Trademarks:
+  * "Logitech", "Z Cinéma", "TruSurround", "TruSurround HD" and "TruBass" are
+    trademarks of Logitech Europe S.A. / SRS Labs (now Xperi) or their
+    respective owners. They are used here only to describe the hardware this
+    tool is intended for. This project is not affiliated with, or endorsed by,
+    Logitech or SRS/Xperi.
+
+No proprietary Logitech/SRS drivers, DLLs, sys files or catalogs are included
+or required.

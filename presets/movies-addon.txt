@@ -1,0 +1,8 @@
+# Movies / TV add-on - layer AFTER the main profile with:
+#     Include: ZCinema.txt
+#     Include: presets\movies-addon.txt
+# More dialogue presence and a wider image for films.
+Filter: ON  PK   Fc 2500 Hz Gain 3 dB Q 1.20
+Filter: ON  PK   Fc 4000 Hz Gain 2 dB Q 1.50
+Copy: L=L+-0.06*R
+Copy: R=R+-0.06*L
