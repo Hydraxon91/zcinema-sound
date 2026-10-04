@@ -59,6 +59,41 @@ Key design points:
 - **Packaging**: `dotnet publish -c Release -r win-x64 --self-contained true
   -p:PublishSingleFile=true` → one `.exe`, no runtime install needed.
 
+## Remote buttons (planned feature)
+
+The remote already works inbox for media keys; the goal is to claim *extra*
+buttons for our own actions. Feasibility is proven by `tools\Remote-Probe.ps1`
+(user-mode HID sniffer; no driver). The Consumer (`COL01`) and Vendor
+`FFBC:0088` (`COL02`) collections open without elevation; the Keyboard
+collection (`COL03`) needs Administrator to read (anti-keylogger protection).
+
+Per button, based on which collection it arrives on:
+
+| Arrives as... | Mechanism | Conflict |
+|---|---|---|
+| Keyboard key (COL03) | PowerToys Keyboard Manager / AutoHotkey (user-mode) | none |
+| Consumer usage the OS handles (COL01) | AutoHotkey if supported, else our HID reader | OS may also act |
+| Free consumer usage, or the vendor collection (COL02) | our user-mode HID reader | none (best case) |
+
+Deliverable: a background **remote bridge** (user-mode HID read + JSON mapping)
+with a **Learn** mode in the GUI (press a button, assign an action). Intended
+capabilities — all of them:
+
+- **Presets + GUI:** Windows button -> open/focus the control panel; buttons to
+  load Movies / Music / Night / Vocal / V-Shape presets; Custom 1/2/3.
+- **Sound controls:** step the volume ceiling, mute, Dialogue, or Width.
+- **General shortcuts:** launch/close apps, media transport, macros.
+
+Constraints (deliberate):
+
+- **User-mode only** — no kernel HID filter, no test-signing; anti-cheat stays
+  unaffected.
+- **No hijacking** of keys Windows already uses (volume/play). A few OS-handled
+  buttons may double-fire; suppressing that needs a kernel tool (we won't).
+- Reading the Keyboard collection requires Administrator; Consumer/Vendor do not.
+
+Status: Phase 1 probe built (`tools\Remote-Probe.ps1`).
+
 ## 4. CI/CD
 
 - GitHub Actions on `windows-latest`:

@@ -17,6 +17,7 @@ echo    5) Bypass - disable all processing          (admin)
 echo    6) Uninstall                                (admin)
 echo    7) Open Equalizer APO config folder
 echo    8) Get Equalizer APO log                    (admin)
+echo    9) Probe remote buttons                     (admin)
 echo.
 echo    0) Exit
 echo.
@@ -30,6 +31,7 @@ if "%sel%"=="5" goto bypass
 if "%sel%"=="6" goto uninstall
 if "%sel%"=="7" goto folder
 if "%sel%"=="8" goto log
+if "%sel%"=="9" goto probe
 if "%sel%"=="0" exit /b 0
 goto menu
 
@@ -70,4 +72,8 @@ goto menu
 
 :log
 powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-NoExit','-File','%REPO%tools\Get-EqualizerApoLog.ps1','-Trace'"
+goto menu
+
+:probe
+powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoProfile','-ExecutionPolicy','Bypass','-NoExit','-File','%REPO%tools\Remote-Probe.ps1','-Seconds','45'"
 goto menu

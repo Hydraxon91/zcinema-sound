@@ -56,8 +56,9 @@ Straight about the limits:
   On another PC, a console, or Bluetooth, the sound is stock.
 - **No kernel driver, by design.** Good for anti-cheat, but it also means no
   driver-level hooks or vendor control-panel integration; nothing is test-signed.
-- **Remote extras aren't implemented.** Media keys work inbox; the vendor HID
-  collection (`FFBC:0088`) is unused, so no custom remote/display features.
+- **Remote extras aren't implemented yet.** Media keys work inbox; the vendor HID
+  collection (`FFBC:0088`) is unused so far. A user-mode remote bridge is planned
+  — see `tools\Remote-Probe.ps1` and `docs\ROADMAP.md`.
 - **No signed, standalone app yet.** Today it's PowerShell + Equalizer APO; the
   one-file `.exe` is planned (`docs\ROADMAP.md`).
 - **Anti-cheat caveat.** Equalizer APO is user-mode and widely used with games,
