@@ -10,6 +10,16 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>..\..\assets\ZCinemaSound.ico</ApplicationIcon>
+    <AssemblyTitle>ZCinema Sound</AssemblyTitle>
+    <Product>ZCinema Sound</Product>
+    <Company>ZCinema Sound</Company>
+    <Version>0.1.0</Version>
+    <Copyright>MIT</Copyright>
   </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\assets\ZCinemaSound.ico" LogicalName="ZCinemaSound.ico" />
+  </ItemGroup>
 
 </Project>

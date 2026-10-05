@@ -638,12 +638,20 @@ public sealed class MainForm : Form, IActionHost
 
     private static Icon LoadAppIcon()
     {
+        // 1) assets\ next to the repo during development
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         for (int i = 0; i < 8 && dir is not null; i++, dir = dir.Parent)
         {
             var candidate = Path.Combine(dir.FullName, "assets", "ZCinemaSound.ico");
             if (File.Exists(candidate)) { try { return new Icon(candidate); } catch { } }
         }
+        // 2) embedded resource (works when published standalone)
+        try
+        {
+            using var s = typeof(MainForm).Assembly.GetManifestResourceStream("ZCinemaSound.ico");
+            if (s is not null) return new Icon(s);
+        }
+        catch { }
         return SystemIcons.Application;
     }
 }
