@@ -27,6 +27,10 @@ dotnet publish ZCinemaSound.App -c Release -r win-x64 --self-contained true `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
+The tray menu has **Install / update profile**, **Bypass processing** and
+**Uninstall** — so the app manages the Equalizer APO wiring itself (no legacy
+scripts needed; install/uninstall self-elevate).
+
 It shares the same profile (`…\EqualizerAPO\config\ZCinema.txt`) and the same
 `%APPDATA%\ZCinemaSound\` data as the legacy scripts, and uses the same
 single-instance mutex — so **don't run both at once**.

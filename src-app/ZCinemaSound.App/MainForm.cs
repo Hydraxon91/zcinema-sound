@@ -530,6 +530,9 @@ public sealed class MainForm : Form, IActionHost
         _tray.Icon = Icon; _tray.Text = "ZCinema Sound"; _tray.Visible = true;
         var menu = new ContextMenuStrip();
         menu.Items.Add("Open control panel", null, (_, _) => ShowApp());
+        menu.Items.Add("Install / update profile", null, (_, _) => RunElevated("install"));
+        menu.Items.Add("Bypass processing", null, (_, _) => ActionRunner.Run("bypass", this));
+        menu.Items.Add(new ToolStripSeparator());
         var miRemote = new ToolStripMenuItem("Remote mapping") { CheckOnClick = true, Checked = true };
         miRemote.CheckedChanged += (_, _) => { _remoteEnabled = miRemote.Checked; _chkRemote.Checked = miRemote.Checked; };
         menu.Items.Add(miRemote);
@@ -537,9 +540,23 @@ public sealed class MainForm : Form, IActionHost
         miAuto.CheckedChanged += (_, _) => SetAutostart(miAuto.Checked);
         menu.Items.Add(miAuto);
         menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add("Uninstall", null, (_, _) => RunElevated("uninstall"));
         menu.Items.Add("Exit", null, (_, _) => ExitApp());
         _tray.ContextMenuStrip = menu;
         _tray.DoubleClick += (_, _) => ShowApp();
+    }
+
+    private static void RunElevated(string arg)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!, arg)
+            {
+                UseShellExecute = true,
+                Verb = "runas",
+            });
+        }
+        catch { /* user declined UAC */ }
     }
 
     private const string RunKeyName = @"Software\Microsoft\Windows\CurrentVersion\Run";
