@@ -7,13 +7,14 @@ namespace ZCinemaSound.App;
 
 public sealed class MainForm : Form, IActionHost
 {
-    private readonly TrackBar _preamp = Slider(-60, 0);
-    private readonly TrackBar _bass = Slider(-12, 12);
-    private readonly TrackBar _treble = Slider(-12, 12);
-    private readonly TrackBar _dialog = Slider(-9, 9);
-    private readonly TrackBar _width = Slider(0, 30);
+    private readonly LedSlider _preamp = Slider(-60, 0, 16);
+    private readonly LedSlider _bass = Slider(-12, 12, 13);
+    private readonly LedSlider _treble = Slider(-12, 12, 13);
+    private readonly LedSlider _dialog = Slider(-9, 9, 13);
+    private readonly LedSlider _width = Slider(0, 30, 13);
+    private readonly List<Label> _rowValue = new();
 
-    private readonly TrackBar[] _eq = new TrackBar[ZCinemaProfile.EqFreqs.Length];
+    private readonly LedSlider[] _eq = new LedSlider[ZCinemaProfile.EqFreqs.Length];
     private readonly Label[] _eqValue = new Label[ZCinemaProfile.EqFreqs.Length];
 
     private readonly Label _status = new();
@@ -27,7 +28,8 @@ public sealed class MainForm : Form, IActionHost
     private readonly HidReader _reader = new();
     private readonly DataGridView _grid = new();
     private readonly Label _remoteStatus = new();
-    private readonly CheckBox _chkRemote = new() { Text = "Remote on", Checked = true, Width = 110 };
+    private readonly Label _remoteHelp = new();
+    private readonly CheckBox _chkRemote = new() { Text = "Remote on", Checked = true, Width = 100 };
     private readonly Dictionary<string, DateTime> _lastPress = new();
     private bool _learn;
     private bool _remoteEnabled = true;
@@ -62,6 +64,13 @@ public sealed class MainForm : Form, IActionHost
         BuildRemoteTab(remote);
         BuildTray();
 
+        Theme.Apply(this);
+        _status.ForeColor = Theme.Minor;
+        _remoteStatus.ForeColor = Theme.Minor;
+        _remoteHelp.ForeColor = Theme.Edge;
+        foreach (var l in _rowValue) l.ForeColor = Theme.Minor;
+        foreach (var l in _eqValue) l.ForeColor = Theme.Minor;
+
         FormClosing += (_, e) =>
         {
             if (!_exiting)
@@ -82,15 +91,15 @@ public sealed class MainForm : Form, IActionHost
         var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10), AutoScroll = true };
         page.Controls.Add(panel);
 
-        int y = 14;
+        int y = 16;
         Row(panel, "Ceiling", _preamp, ref y);
         Row(panel, "Bass", _bass, ref y);
         Row(panel, "Treble", _treble, ref y);
         Row(panel, "Dialogue", _dialog, ref y);
-        Row(panel, "Width %", _width, ref y);
+        Row(panel, "Width", _width, ref y);
 
-        var lblPreset = new Label { Text = "Preset", Left = 12, Top = y + 5, Width = 66 };
-        _preset.Left = 84; _preset.Top = y; _preset.Width = 170; _preset.DropDownStyle = ComboBoxStyle.DropDownList;
+        var lblPreset = new Label { Text = "Preset", Left = 14, Top = y + 6, Width = 70, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
+        _preset.Left = 96; _preset.Top = y; _preset.Width = 170; _preset.DropDownStyle = ComboBoxStyle.DropDownList;
         _preset.Items.AddRange(new object[] { "(custom)", "Flat", "Music", "Movies", "Night", "Vocal", "V-Shape" });
         _preset.SelectedIndex = 0;
         _preset.SelectedIndexChanged += (_, _) =>
@@ -103,39 +112,54 @@ public sealed class MainForm : Form, IActionHost
         };
         panel.Controls.Add(lblPreset);
         panel.Controls.Add(_preset);
-        y += 40;
+        y += 44;
 
-        var lblEq = new Label { Text = "Graphic EQ (dB)", Left = 12, Top = y, Width = 200, Font = new Font("Segoe UI", 9f, FontStyle.Bold) };
+        var lblEq = new Label { Text = "Graphic EQ (dB)", Left = 14, Top = y, Width = 220, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
         panel.Controls.Add(lblEq);
-        y += 26;
+        y += 28;
 
         string[] eqLabels = { "60", "170", "470", "1.2k", "2.4k", "4.7k", "10k", "14k" };
         for (int i = 0; i < _eq.Length; i++)
         {
-            int x = 22 + i * 66;
+            int x = 24 + i * 66;
             var freq = new Label { Text = eqLabels[i], Left = x, Top = y, Width = 50, TextAlign = ContentAlignment.MiddleCenter };
-            var track = new TrackBar
+            var track = new LedSlider
             {
                 Orientation = Orientation.Vertical,
-                Minimum = -12, Maximum = 12, TickFrequency = 4,
-                Height = 180, Width = 50, Left = x, Top = y + 20,
-                RightToLeftLayout = true,
+                Minimum = -12, Maximum = 12, Segments = 13,
+                Width = 50, Height = 190, Left = x, Top = y + 20,
             };
-            var val = new Label { Text = "0", Left = x, Top = y + 204, Width = 50, TextAlign = ContentAlignment.MiddleCenter };
+            var val = new Label { Text = "0", Left = x, Top = y + 214, Width = 50, TextAlign = ContentAlignment.MiddleCenter };
             track.Tag = val;
             track.ValueChanged += (_, _) => { if (!_loading) { UpdateLabels(); _debounce.Stop(); _debounce.Start(); } };
             _eq[i] = track;
             _eqValue[i] = val;
             panel.Controls.Add(freq); panel.Controls.Add(track); panel.Controls.Add(val);
         }
-        y += 232;
+        y += 244;
 
-        _status.Left = 12; _status.Top = y; _status.Width = 560; _status.Height = 40;
+        _status.Left = 14; _status.Top = y; _status.Width = 560; _status.Height = 40;
         panel.Controls.Add(_status);
 
         foreach (var t in new[] { _preamp, _bass, _treble, _dialog, _width })
             t.ValueChanged += (_, _) => { if (!_loading) { UpdateLabels(); _debounce.Stop(); _debounce.Start(); } };
         _debounce.Tick += (_, _) => { _debounce.Stop(); Save(); };
+    }
+
+    private static LedSlider Slider(int min, int max, int segments) => new()
+    {
+        Minimum = min, Maximum = max, Segments = segments, Width = 430, Height = 30,
+    };
+
+    private void Row(Control parent, string name, LedSlider track, ref int y)
+    {
+        var label = new Label { Text = name, Left = 14, Top = y + 6, Width = 74, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
+        track.Left = 96; track.Top = y;
+        var value = new Label { Left = 530, Top = y + 6, Width = 60, TextAlign = ContentAlignment.MiddleRight };
+        track.Tag = value;
+        _rowValue.Add(value);
+        parent.Controls.Add(label); parent.Controls.Add(track); parent.Controls.Add(value);
+        y += 40;
     }
 
     // ----------------------------------------------------------------- Remote
@@ -144,14 +168,11 @@ public sealed class MainForm : Form, IActionHost
         var panel = new Panel { Dock = DockStyle.Fill };
         page.Controls.Add(panel);
 
-        var help = new Label
-        {
-            Left = 6, Top = 4, Width = 600, Height = 24,
-            Text = "Map the remote's free buttons. Actions app/script/url/keys use the Value box. Click Learn, then press a remote button.",
-        };
-        panel.Controls.Add(help);
+        _remoteHelp.Text = "Map the remote's free buttons. app/script/url/keys use the Value box. Click Learn, then press a remote button.";
+        _remoteHelp.Left = 8; _remoteHelp.Top = 6; _remoteHelp.Width = 594; _remoteHelp.Height = 24;
+        panel.Controls.Add(_remoteHelp);
 
-        _grid.Left = 6; _grid.Top = 30; _grid.Width = 592; _grid.Height = 380;
+        _grid.Left = 8; _grid.Top = 32; _grid.Width = 592; _grid.Height = 372;
         _grid.AllowUserToAddRows = false;
         _grid.RowHeadersVisible = false;
         _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
@@ -163,17 +184,17 @@ public sealed class MainForm : Form, IActionHost
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Value (app / script / url / keys)", FillWeight = 240 });
         panel.Controls.Add(_grid);
 
-        var bar = new FlowLayoutPanel { Left = 6, Top = 416, Width = 592, Height = 36 };
-        var btnLearn = new Button { Text = "Learn (press a button)", Width = 150 };
-        var btnSave = new Button { Text = "Save", Width = 70 };
-        var btnDefaults = new Button { Text = "Restore defaults", Width = 110 };
-        var btnReload = new Button { Text = "Reload file", Width = 90 };
-        var btnBrowse = new Button { Text = "Browse...", Width = 80 };
-        var btnExit = new Button { Text = "Exit", Width = 60 };
+        var bar = new FlowLayoutPanel { Left = 8, Top = 412, Width = 592, Height = 36 };
+        var btnLearn = new Button { Text = "Learn (press a button)", Width = 150, Height = 26 };
+        var btnSave = new Button { Text = "Save", Width = 66, Height = 26 };
+        var btnDefaults = new Button { Text = "Restore defaults", Width = 108, Height = 26 };
+        var btnReload = new Button { Text = "Reload file", Width = 86, Height = 26 };
+        var btnBrowse = new Button { Text = "Browse...", Width = 78, Height = 26 };
+        var btnExit = new Button { Text = "Exit", Width = 56, Height = 26 };
         bar.Controls.AddRange(new Control[] { btnLearn, btnSave, btnDefaults, btnReload, btnBrowse, _chkRemote, btnExit });
         panel.Controls.Add(bar);
 
-        _remoteStatus.Left = 6; _remoteStatus.Top = 456; _remoteStatus.Width = 592; _remoteStatus.Height = 24;
+        _remoteStatus.Left = 8; _remoteStatus.Top = 452; _remoteStatus.Width = 592; _remoteStatus.Height = 30;
         panel.Controls.Add(_remoteStatus);
 
         btnLearn.Click += (_, _) => { _learn = true; _remoteStatus.Text = "Listening... press a remote button now."; };
@@ -243,7 +264,6 @@ public sealed class MainForm : Form, IActionHost
         _remoteStatus.Text = "Value set for " + row.Cells[0].Value;
     }
 
-    // reader fires on a background thread
     private void OnReaderButton(string name)
     {
         if (!IsHandleCreated) return;
@@ -296,20 +316,20 @@ public sealed class MainForm : Form, IActionHost
         _tray.DoubleClick += (_, _) => ShowApp();
     }
 
-    private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string RunName = "ZCinemaSound";
+    private const string RunKeyName = @"Software\Microsoft\Windows\CurrentVersion\Run";
+    private const string RunValueName = "ZCinemaSound";
 
     private static bool GetAutostart()
     {
-        using var k = Registry.CurrentUser.OpenSubKey(RunKey);
-        return k?.GetValue(RunName) is string s && s.Length > 0;
+        using var k = Registry.CurrentUser.OpenSubKey(RunKeyName);
+        return k?.GetValue(RunValueName) is string s && s.Length > 0;
     }
 
     private static void SetAutostart(bool on)
     {
-        using var k = Registry.CurrentUser.CreateSubKey(RunKey);
-        if (on) k.SetValue(RunName, "\"" + Environment.ProcessPath + "\"");
-        else k.DeleteValue(RunName, false);
+        using var k = Registry.CurrentUser.CreateSubKey(RunKeyName);
+        if (on) k.SetValue(RunValueName, "\"" + Environment.ProcessPath + "\"");
+        else k.DeleteValue(RunValueName, false);
     }
 
     private void ExitApp()
@@ -321,27 +341,12 @@ public sealed class MainForm : Form, IActionHost
     }
 
     // ------------------------------------------------------------- sound I/O
-    private static TrackBar Slider(int min, int max) => new()
-    {
-        Minimum = min, Maximum = max, TickFrequency = Math.Max(1, (max - min) / 12), Width = 420,
-    };
-
-    private void Row(Control parent, string name, TrackBar track, ref int y)
-    {
-        var label = new Label { Text = name, Left = 12, Top = y + 6, Width = 66 };
-        track.Left = 84; track.Top = y;
-        var value = new Label { Left = 514, Top = y + 6, Width = 70, TextAlign = ContentAlignment.MiddleRight };
-        track.Tag = value;
-        parent.Controls.Add(label); parent.Controls.Add(track); parent.Controls.Add(value);
-        y += 42;
-    }
-
     private void UpdateLabels()
     {
         Set(_preamp, "{0} dB"); Set(_bass, "{0} dB"); Set(_treble, "{0} dB");
         Set(_dialog, "{0} dB"); Set(_width, "{0} %");
         for (int i = 0; i < _eq.Length; i++) _eqValue[i].Text = _eq[i].Value.ToString();
-        static void Set(TrackBar t, string fmt) { if (t.Tag is Label l) l.Text = string.Format(fmt, t.Value); }
+        static void Set(LedSlider t, string fmt) { if (t.Tag is Label l) l.Text = string.Format(fmt, t.Value); }
     }
 
     private void LoadProfileIntoUi() => ApplyToUi(EqualizerApo.LoadProfile());
@@ -361,7 +366,7 @@ public sealed class MainForm : Form, IActionHost
         _status.Text = "Loaded from " + EqualizerApo.ProfilePath();
     }
 
-    private static int Clamp(TrackBar t, int v) => Math.Min(t.Maximum, Math.Max(t.Minimum, v));
+    private static int Clamp(LedSlider t, int v) => Math.Min(t.Maximum, Math.Max(t.Minimum, v));
 
     private ZCinemaProfile FromUi()
     {
