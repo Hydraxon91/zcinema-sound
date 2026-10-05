@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.3.1 — 2026-10-05
+
+- **Starts in the tray by default.** The control panel no longer pops up in the
+  middle of the screen on launch — the app goes straight to the notification area
+  and the remote mappings keep working. Open it from the tray (double-click the
+  icon, or **Open control panel**); launching the shortcut again while it's already
+  running also brings the window up.
+- Tick **Show window on start** in the tray menu if you'd rather it open on launch.
+
 ## v0.3.0 — 2026-10-05
 
 - **High-DPI support:** the app is now `PerMonitorV2`-aware and scales its layout,

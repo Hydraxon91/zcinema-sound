@@ -14,8 +14,8 @@ public sealed class AppSettings
     /// <summary>GUID of the endpoint the user last selected ("" = auto).</summary>
     public string ActiveDeviceGuid { get; set; } = "";
 
-    /// <summary>Start hidden in the tray instead of showing the window.</summary>
-    public bool StartMinimized { get; set; }
+    /// <summary>Show the control panel on launch (default: start hidden in the tray).</summary>
+    public bool ShowOnStart { get; set; }
 
     /// <summary>Emit per-device <c>If</c> blocks (so each device keeps its own tuning).</summary>
     public bool ScopePerDevice { get; set; } = true;

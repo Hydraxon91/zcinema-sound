@@ -48,6 +48,8 @@ public sealed class MainForm : Form, IActionHost
     private bool _loading;
     private bool _exiting;
     private bool _balloonShown;
+    private bool _startupHandled;
+    private readonly System.Windows.Forms.Timer _startup = new() { Interval = 200 };
 
     // remote
     private readonly HidReader _reader = new();
@@ -126,23 +128,28 @@ public sealed class MainForm : Form, IActionHost
         _showTimer.Start();
         _reader.ButtonPressed += OnReaderButton;
         _reader.Start();
-        if (_settings.StartMinimized) BeginInvoke(new Action(HideToTray));
 
-        if (!EqualizerApo.IsInstalled() && !_settings.WarnedNoApo)
+        // Realise the window handle now: we may start hidden in the tray, and the HID
+        // reader / timers / BeginInvoke all need a handle even while invisible.
+        _ = Handle;
+
+        _startup.Tick += (_, _) => { _startup.Stop(); StartupCheck(); };
+        _startup.Start();
+    }
+
+    /// <summary>Runs once the message loop is up (after the window handle is realised).</summary>
+    private void StartupCheck()
+    {
+        if (EqualizerApo.IsInstalled() || _settings.WarnedNoApo) return;
+        _settings.WarnedNoApo = true;
+        _settings.Save();
+        var r = MessageBox.Show(
+            "Equalizer APO isn't installed.\n\nZCinema Sound uses it for all audio processing (GPLv2 - it isn't bundled).\n\nOpen its download page now?",
+            "ZCinema Sound", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+        if (r == DialogResult.Yes)
         {
-            _settings.WarnedNoApo = true;
-            _settings.Save();
-            BeginInvoke(new Action(() =>
-            {
-                var r = MessageBox.Show(
-                    "Equalizer APO isn't installed.\n\nZCinema Sound uses it for all audio processing (GPLv2 - it isn't bundled).\n\nOpen its download page now?",
-                    "ZCinema Sound", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-                if (r == DialogResult.Yes)
-                {
-                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://sourceforge.net/projects/equalizerapo/") { UseShellExecute = true }); }
-                    catch { }
-                }
-            }));
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://sourceforge.net/projects/equalizerapo/") { UseShellExecute = true }); }
+            catch { }
         }
     }
 
@@ -203,6 +210,26 @@ public sealed class MainForm : Form, IActionHost
     protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e); SetRegion(); }
     protected override void OnShown(EventArgs e) { base.OnShown(e); SetRegion(); SetContentRegion(); SetFrameRegion(); }
     protected override void OnResize(EventArgs e) { base.OnResize(e); SetRegion(); SetContentRegion(); SetFrameRegion(); }
+
+    protected override void SetVisibleCore(bool value)
+    {
+        // Start hidden in the tray (default) without a flash: swallow the first show.
+        if (value && !_startupHandled)
+        {
+            _startupHandled = true;
+            if (!_settings.ShowOnStart)
+            {
+                base.SetVisibleCore(false);
+                if (!_balloonShown)
+                {
+                    _tray.ShowBalloonTip(3000, "ZCinema Sound", "Running in the tray - open the panel from here.", ToolTipIcon.Info);
+                    _balloonShown = true;
+                }
+                return;
+            }
+        }
+        base.SetVisibleCore(value);
+    }
 
     private void SetContentRegion()
     {
@@ -701,8 +728,8 @@ public sealed class MainForm : Form, IActionHost
         var miAuto = new ToolStripMenuItem("Start with Windows") { CheckOnClick = true, Checked = GetAutostart() };
         miAuto.CheckedChanged += (_, _) => SetAutostart(miAuto.Checked);
         menu.Items.Add(miAuto);
-        var miMin = new ToolStripMenuItem("Start minimized") { CheckOnClick = true, Checked = _settings.StartMinimized };
-        miMin.CheckedChanged += (_, _) => { _settings.StartMinimized = miMin.Checked; _settings.Save(); };
+        var miMin = new ToolStripMenuItem("Show window on start") { CheckOnClick = true, Checked = _settings.ShowOnStart };
+        miMin.CheckedChanged += (_, _) => { _settings.ShowOnStart = miMin.Checked; _settings.Save(); };
         menu.Items.Add(miMin);
         var miScope = new ToolStripMenuItem("Per-device EQ scoping") { CheckOnClick = true, Checked = _settings.ScopePerDevice };
         miScope.CheckedChanged += (_, _) => { _settings.ScopePerDevice = miScope.Checked; _settings.Save(); Persist(FromUi()); };

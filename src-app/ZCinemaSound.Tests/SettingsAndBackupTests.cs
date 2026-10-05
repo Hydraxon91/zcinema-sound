@@ -19,10 +19,10 @@ public class AppSettingsTests
         var dir = TempDir();
         try
         {
-            new AppSettings { ActiveDeviceGuid = "{abc}", StartMinimized = true }.Save(dir);
+            new AppSettings { ActiveDeviceGuid = "{abc}", ShowOnStart = true }.Save(dir);
             var back = AppSettings.Load(dir);
             Assert.Equal("{abc}", back.ActiveDeviceGuid);
-            Assert.True(back.StartMinimized);
+            Assert.True(back.ShowOnStart);
         }
         finally { Directory.Delete(dir, true); }
     }
@@ -35,7 +35,7 @@ public class AppSettingsTests
         {
             var s = AppSettings.Load(dir);
             Assert.Equal("", s.ActiveDeviceGuid);
-            Assert.False(s.StartMinimized);
+            Assert.False(s.ShowOnStart);
         }
         finally { Directory.Delete(dir, true); }
     }
@@ -52,7 +52,7 @@ public class BackupTests
             CustomSlots = new() { ["1"] = new CustomPreset(-8, 5, 2, 3, 0.1, new double[] { 1, 1, 1, 1, 1, 1, 1, 1 }) },
             Bindings = new() { ["Display"] = "gui", ["Preset 1"] = "preset:Music" },
             Devices = new() { ["{g}"] = new ZCinemaProfile { BassGain = 7 } },
-            Settings = new AppSettings { ActiveDeviceGuid = "{g}", StartMinimized = true },
+            Settings = new AppSettings { ActiveDeviceGuid = "{g}", ShowOnStart = true },
         };
 
         var json = JsonSerializer.Serialize(b);
@@ -66,7 +66,7 @@ public class BackupTests
         Assert.Equal(2, back.Bindings.Count);
         Assert.Equal("gui", back.Bindings["Display"]);
         Assert.Equal(7, back.Devices["{g}"].BassGain, 3);
-        Assert.True(back.Settings!.StartMinimized);
+        Assert.True(back.Settings!.ShowOnStart);
         Assert.Equal(8, back.CustomSlots["1"].Eq.Length);
     }
 }
