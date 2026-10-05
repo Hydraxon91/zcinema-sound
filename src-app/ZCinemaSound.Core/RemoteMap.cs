@@ -42,4 +42,24 @@ public static class RemoteMap
         var json = JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(MapPath(), json);
     }
+
+    public static Dictionary<string, CustomPreset> ReadCustomSlots()
+    {
+        var path = PresetsPath();
+        if (!File.Exists(path)) return new(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var all = JsonSerializer.Deserialize<Dictionary<string, CustomPreset>>(
+                File.ReadAllText(path), new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            return all is null ? new(StringComparer.OrdinalIgnoreCase)
+                               : new Dictionary<string, CustomPreset>(all, StringComparer.OrdinalIgnoreCase);
+        }
+        catch { return new(StringComparer.OrdinalIgnoreCase); }
+    }
+
+    public static void SaveCustomSlots(IDictionary<string, CustomPreset> slots)
+    {
+        Directory.CreateDirectory(Dir());
+        File.WriteAllText(PresetsPath(), JsonSerializer.Serialize(slots, new JsonSerializerOptions { WriteIndented = true }));
+    }
 }

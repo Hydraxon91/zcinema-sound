@@ -17,11 +17,15 @@ public sealed class MainForm : Form, IActionHost
     private readonly LedSlider _dialog = Slider(-9, 9, 13);
     private readonly LedSlider _width = Slider(0, 30, 13);
     private readonly LedSlider _volSlider = new() { Minimum = 0, Maximum = 100, Segments = 20, Width = 430, Height = 28 };
+    private readonly CheckBox _chkMute = new() { Text = "Mute", Width = 80, Height = 24, ForeColor = Theme.Accent, BackColor = Theme.Bg };
+    private bool _muting;
     private readonly List<Label> _rowValue = new();
 
     private AudioEndpointVolume? _volume;
     private readonly System.Windows.Forms.Timer _volTimer = new() { Interval = 350 };
     private bool _volSyncing;
+    private readonly EventWaitHandle _showEvent = new(false, EventResetMode.AutoReset, @"Local\ZCinema_Show");
+    private readonly System.Windows.Forms.Timer _showTimer = new() { Interval = 400 };
 
     private readonly LedSlider[] _eq = new LedSlider[ZCinemaProfile.EqFreqs.Length];
     private readonly Label[] _eqValue = new Label[ZCinemaProfile.EqFreqs.Length];
@@ -110,6 +114,8 @@ public sealed class MainForm : Form, IActionHost
         SyncVolumeFromDevice();
         _volTimer.Tick += (_, _) => SyncVolumeFromDevice();
         _volTimer.Start();
+        _showTimer.Tick += (_, _) => { if (_showEvent.WaitOne(0)) ShowApp(); };
+        _showTimer.Start();
         _reader.ButtonPressed += OnReaderButton;
         _reader.Start();
     }
@@ -206,6 +212,13 @@ public sealed class MainForm : Form, IActionHost
         var output = new GlassPanel { Left = 14, Top = 6, Width = 652, Height = 124, Caption = "Output" };
         RowVolume(output, 30);
         Row(output, "Ceiling", _preamp, 70);
+        var btnCal = new Button { Text = "Calibrate ceiling...", Left = 482, Top = 90, Width = 160, Height = 26 };
+        Theme.StyleButton(btnCal);
+        btnCal.Click += (_, _) => Calibrate();
+        output.Controls.Add(btnCal);
+        _chkMute.Left = 330; _chkMute.Top = 90;
+        _chkMute.CheckedChanged += (_, _) => { if (!_muting && _volume is not null) _volume.SetMute(_chkMute.Checked); };
+        output.Controls.Add(_chkMute);
 
         var tone = new GlassPanel { Left = 14, Top = 136, Width = 652, Height = 192, Caption = "Tone" };
         Row(tone, "Bass", _bass, 30);
@@ -222,7 +235,7 @@ public sealed class MainForm : Form, IActionHost
 
         _presetSeg.Items = PresetNames;
         _presetSeg.SelectedIndex = -1; // show none until the user picks one
-        _presetSeg.Left = 14; _presetSeg.Top = 580; _presetSeg.Width = 600; _presetSeg.Height = 34;
+        _presetSeg.Left = 14; _presetSeg.Top = 580; _presetSeg.Width = 440; _presetSeg.Height = 34;
         _presetSeg.SelectedIndexChanged += (_, _) =>
         {
             if (_loading || _presetSeg.SelectedIndex < 0) return;
@@ -232,6 +245,17 @@ public sealed class MainForm : Form, IActionHost
             Save();
         };
         _soundRoot.Controls.Add(_presetSeg);
+
+        var lblSave = new Label { Text = "Save:", Left = 462, Top = 586, Width = 40, ForeColor = Theme.Edge, BackColor = Color.Transparent };
+        _soundRoot.Controls.Add(lblSave);
+        for (int i = 1; i <= 3; i++)
+        {
+            int slot = i;
+            var b = new Button { Text = slot.ToString(), Left = 500 + (i - 1) * 46, Top = 582, Width = 40, Height = 28 };
+            Theme.StyleButton(b);
+            b.Click += (_, _) => SaveCustomSlot(slot.ToString());
+            _soundRoot.Controls.Add(b);
+        }
 
         _status.Left = 18; _status.Top = 622; _status.Width = 644; _status.Height = 44;
         _status.ForeColor = Theme.Muted; _status.Font = Theme.ValueFont;
@@ -267,6 +291,29 @@ public sealed class MainForm : Form, IActionHost
             _volSyncing = false;
         }
         lbl.Text = _volSlider.Value + " %";
+        _muting = true;
+        _chkMute.Checked = _volume.GetMute();
+        _muting = false;
+    }
+
+    private void Calibrate()
+    {
+        using var dlg = new CalibrateDialog(_volume);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        var p = EqualizerApo.LoadProfile();
+        p.PreampDb = dlg.PreampDb;
+        EqualizerApo.SaveProfile(p);
+        ApplyToUi(p);
+        _status.Text = $"Ceiling set to {dlg.PreampDb} dB";
+    }
+
+    private void SaveCustomSlot(string slot)
+    {
+        var p = FromUi();
+        var slots = RemoteMap.ReadCustomSlots();
+        slots[slot] = new CustomPreset(p.PreampDb, p.BassGain, p.TrebleGain, p.DialogGain, p.Width * 100.0, p.EqGains);
+        RemoteMap.SaveCustomSlots(slots);
+        _status.Text = $"Saved current settings to Custom {slot}";
     }
 
     private void Row(Control parent, string name, LedSlider track, int y)

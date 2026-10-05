@@ -2,6 +2,35 @@
 
 <p align="center"><img src="assets/ZCinemaSound.png" width="112" alt="ZCinema Sound icon"></p>
 
+> **Current app:** the native **C#/.NET** build in `src-app\` is the primary
+> product — a themed tray app with the 8-band EQ, a Windows volume slider,
+> ceiling calibration and remote-button mapping. The **PowerShell scripts below
+> are legacy/reference** (they still work) and are kept until the `.exe` reaches
+> full parity. See [Native app (C#)](#native-app-c).
+
+## Native app (C#)
+
+The current app lives in `src-app\` (`ZCinemaSound.Core` + `ZCinemaSound.App` +
+`ZCinemaSound.Tests`). It needs the [.NET 10 SDK](https://dotnet.microsoft.com/) to build.
+
+```powershell
+cd src-app
+dotnet build
+dotnet run --project ZCinemaSound.App      # run it
+dotnet test                                # unit tests
+```
+
+Single-file, self-contained `.exe` (no runtime needed on the target):
+
+```powershell
+dotnet publish ZCinemaSound.App -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
+
+It shares the same profile (`…\EqualizerAPO\config\ZCinema.txt`) and the same
+`%APPDATA%\ZCinemaSound\` data as the legacy scripts, and uses the same
+single-instance mutex — so **don't run both at once**.
+
 Sound profile + setup helper that makes the **Logitech Z Cinéma** USB speakers
 sound right on modern Windows (10/11) — proper volume behaviour, bass, treble
 and EQ — **without any kernel driver and without test-signing**.
@@ -62,8 +91,8 @@ Straight about the limits:
 - **Remote extras aren't implemented yet.** Media keys work inbox; the vendor HID
   collection (`FFBC:0088`) is unused so far. A user-mode remote bridge is planned
   — see `tools\Remote-Probe.ps1` and `docs\ROADMAP.md`.
-- **No signed, standalone app yet.** Today it's PowerShell + Equalizer APO; the
-  one-file `.exe` is planned (`docs\ROADMAP.md`).
+- **Not a signed app.** It ships as an unsigned single-file `.exe` (once
+  packaged) or PowerShell + Equalizer APO today; SmartScreen may warn on first run.
 - **Anti-cheat caveat.** Equalizer APO is user-mode and widely used with games,
   but no anti-cheat guarantees anything — and you can disable it any time with
   `src\Bypass-ZCinema.ps1`.

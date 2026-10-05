@@ -3,6 +3,10 @@
 Where this project is and where it's going. Nothing here changes the current,
 working setup — it's the plan for packaging.
 
+> **Direction:** the native **C#/.NET** app (`src-app\`) is now the product.
+> The PowerShell toolkit is **legacy/reference** — still functional, kept as the
+> regression harness until the `.exe` reaches full parity.
+
 ## 0. Done
 
 - Equalizer APO profile + installer, GUI with sliders/presets, calibration,

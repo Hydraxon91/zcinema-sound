@@ -50,6 +50,13 @@ public sealed class AudioEndpointVolume : IDisposable
         return s;
     }
 
+    public float GetDb()
+    {
+        if (_vol is null) return 0;
+        _vol.GetMasterVolumeLevel(out float db);
+        return db;
+    }
+
     public void SetScalar(float s)
     {
         if (_vol is null) return;
