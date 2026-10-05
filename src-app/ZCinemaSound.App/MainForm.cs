@@ -52,6 +52,8 @@ public sealed class MainForm : Form, IActionHost
     private readonly System.Windows.Forms.Timer _startup = new() { Interval = 200 };
     private readonly ToolStripMenuItem?[] _trayCustom = new ToolStripMenuItem?[3];
     private bool _hotkeysOn;
+    private readonly ToolStripMenuItem _miUpdate = new("Install update...") { Visible = false };
+    private UpdateInfo? _pendingUpdate;
 
     // remote
     private readonly HidReader _reader = new();
@@ -761,10 +763,15 @@ public sealed class MainForm : Form, IActionHost
         var miHot = new ToolStripMenuItem("Global hotkeys (Ctrl+Alt+1-6)") { CheckOnClick = true, Checked = _settings.HotkeysEnabled };
         miHot.CheckedChanged += (_, _) => { _settings.HotkeysEnabled = miHot.Checked; _settings.Save(); ApplyHotkeys(); };
         menu.Items.Add(miHot);
+        var miAutoUpd = new ToolStripMenuItem("Install updates automatically") { CheckOnClick = true, Checked = _settings.AutoUpdate };
+        miAutoUpd.CheckedChanged += (_, _) => { _settings.AutoUpdate = miAutoUpd.Checked; _settings.Save(); };
+        menu.Items.Add(miAutoUpd);
         menu.Items.Add(new ToolStripSeparator());
 
         menu.Items.Add("Back up settings...", null, (_, _) => ExportBackup());
         menu.Items.Add("Restore settings...", null, (_, _) => ImportBackup());
+        _miUpdate.Click += (_, _) => _ = InstallUpdate();
+        menu.Items.Add(_miUpdate);
         menu.Items.Add("Check for updates...", null, (_, _) => _ = CheckForUpdates(true));
         menu.Items.Add("Open data folder", null, (_, _) => OpenDataFolder());
         menu.Items.Add("About", null, (_, _) => ShowAbout());
@@ -820,18 +827,79 @@ public sealed class MainForm : Form, IActionHost
             if (userInitiated) Info($"You're up to date (v{ver}).");
             return;
         }
-        if (!userInitiated)
+
+        _pendingUpdate = info;
+        _miUpdate.Text = $"Install update {info.Version}...";
+        _miUpdate.Visible = true;
+
+        if (_settings.AutoUpdate)
         {
-            _tray.ShowBalloonTip(6000, "ZCinema Sound update", $"Version {info.Version} is available - see the tray menu.", ToolTipIcon.Info);
+            await InstallUpdate();
             return;
         }
-        var r = MessageBox.Show($"Version {info.Version} is available.\n\nOpen the download page?",
-            "ZCinema Sound", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
-        if (r == DialogResult.Yes)
+        if (userInitiated)
         {
-            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(info.Url) { UseShellExecute = true }); }
-            catch { }
+            var r = MessageBox.Show($"Version {info.Version} is available.\n\nDownload and install it now?",
+                "ZCinema Sound", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+            if (r == DialogResult.Yes) await InstallUpdate();
         }
+        else
+        {
+            _tray.ShowBalloonTip(6000, "ZCinema Sound update",
+                $"Version {info.Version} is available - install it from the tray menu.", ToolTipIcon.Info);
+        }
+    }
+
+    /// <summary>Download the newer installer, run it silently, and relaunch the app.</summary>
+    private async Task InstallUpdate()
+    {
+        var info = _pendingUpdate;
+        if (info is null) return;
+
+        if (string.IsNullOrEmpty(info.AssetUrl))
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(info.Url) { UseShellExecute = true }); } catch { }
+            return;
+        }
+
+        string dest = Path.Combine(Path.GetTempPath(), Updater.InstallerAsset);
+        using var dlg = new UpdateDialog(info.Version);
+        var progress = new Progress<int>(dlg.SetProgress);
+        var task = Updater.DownloadAsync(info.AssetUrl, dest, progress, dlg.Cts.Token);
+        _ = task.ContinueWith(_ =>
+        {
+            try { if (!dlg.IsDisposed) dlg.BeginInvoke(new Action(dlg.Close)); } catch { }
+        }, TaskScheduler.Default);
+        dlg.ShowDialog(this);
+        try { await task.ConfigureAwait(true); }
+        catch (OperationCanceledException) { Info("Update cancelled."); return; }
+        catch (Exception ex) { Info("Download failed: " + ex.Message); return; }
+
+        try { LaunchUpdater(dest); } catch (Exception ex) { Info("Could not start the installer: " + ex.Message); return; }
+        ExitApp();
+    }
+
+    /// <summary>Run the installer silently, then relaunch the app, via a detached helper.</summary>
+    private static void LaunchUpdater(string setupPath)
+    {
+        string app = Environment.ProcessPath ?? "";
+        bool perUser = app.StartsWith(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            StringComparison.OrdinalIgnoreCase);
+        string args = "/SILENT /NORESTART" + (perUser ? " /CURRENTUSER" : "");
+
+        string cmdPath = Path.Combine(Path.GetTempPath(), "zcinema-update.cmd");
+        File.WriteAllText(cmdPath,
+            "@echo off\r\n" +
+            $"start \"\" /wait \"{setupPath}\" {args}\r\n" +
+            $"start \"\" \"{app}\"\r\n" +
+            "del \"%~f0\"\r\n");
+
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", $"/c \"{cmdPath}\"")
+        {
+            UseShellExecute = true,
+            WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+        });
     }
 
     // --------------------------------------------------------------- hotkeys

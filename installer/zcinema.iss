@@ -3,14 +3,14 @@
 ; prerequisite* (GPLv2) — it is never bundled; the installer links to its
 ; official download and aborts until it is present.
 ;
-; Build:  ISCC.exe /DAppExeDir="<publish dir>" /DVersion=0.4.0 zcinema.iss
+; Build:  ISCC.exe /DAppExeDir="<publish dir>" /DVersion=0.5.0 zcinema.iss
 ; (or use ..\installer\build-installer.ps1)
 
 #ifndef AppExeDir
   #define AppExeDir "..\src-app\ZCinemaSound.App\bin\Release\net10.0-windows\win-x64\publish"
 #endif
 #ifndef Version
-  #define Version "0.4.0"
+  #define Version "0.5.0"
 #endif
 #ifndef OutputDir
   #define OutputDir "output"

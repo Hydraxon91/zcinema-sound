@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.5.0 (unreleased) — 2026-10-05
+
+- **True auto-update:** the updater finds the installer release asset, downloads it
+  (with a progress window), runs it silently (`/SILENT /NORESTART`, plus
+  `/CURRENTUSER` when the app is installed per-user), relaunches the app, and cleans
+  up the temp copy. The tray gains **Install update vX…** when one is available and an
+  **Install updates automatically** toggle (off by default).
+- Tests: 33.
+
 ## v0.4.0 — 2026-10-05
 
 - **Global hotkeys:** `Ctrl+Alt+1..6` apply the presets and `Ctrl+Alt+0` opens the

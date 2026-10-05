@@ -32,6 +32,9 @@ public sealed class AppSettings
     /// <summary>Check GitHub Releases for a newer version on launch.</summary>
     public bool CheckUpdates { get; set; } = true;
 
+    /// <summary>Download and install updates automatically (no prompt).</summary>
+    public bool AutoUpdate { get; set; }
+
     private static string PathFor(string? directory)
         => System.IO.Path.Combine(directory ?? RemoteMap.Dir(), "settings.json");
 

@@ -39,4 +39,22 @@ public class UpdaterTests
     [Fact]
     public void GarbageJsonIsNull()
         => Assert.Null(Updater.ParseLatest("not json at all", "0.4.0"));
+
+    [Fact]
+    public void FindsInstallerAsset()
+    {
+        var json = """{"tag_name":"v0.5.0","prerelease":false,"html_url":"https://ex/rel","assets":[{"name":"ZCinemaSound.App.exe","browser_download_url":"https://ex/app"},{"name":"ZCinemaSound-Setup.exe","browser_download_url":"https://ex/setup"}]}""";
+        var info = Updater.ParseLatest(json, "0.4.0");
+        Assert.NotNull(info);
+        Assert.Equal("https://ex/setup", info!.AssetUrl);
+    }
+
+    [Fact]
+    public void NoInstallerAssetLeavesItEmpty()
+    {
+        var json = """{"tag_name":"v0.5.0","prerelease":false,"assets":[{"name":"ZCinemaSound.App.exe","browser_download_url":"https://ex/app"}]}""";
+        var info = Updater.ParseLatest(json, "0.4.0");
+        Assert.NotNull(info);
+        Assert.Equal("", info!.AssetUrl);
+    }
 }
