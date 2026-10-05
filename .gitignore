@@ -19,6 +19,9 @@ bin/
 obj/
 *.user
 
+# Installer output
+installer/output/
+
 # Windows
 Thumbs.db
 desktop.ini

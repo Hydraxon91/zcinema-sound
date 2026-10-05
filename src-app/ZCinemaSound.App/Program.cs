@@ -13,12 +13,21 @@ internal static class Program
     {
         var args = Environment.GetCommandLineArgs();
         var cmd = args.Length > 1 ? args[1].TrimStart('-', '/').ToLowerInvariant() : "";
+        var quiet = args.Any(a => a.TrimStart('-', '/').Equals("quiet", StringComparison.OrdinalIgnoreCase));
 
-        // headless setup verbs (run elevated by the UI / launcher)
+        // headless setup verbs (run elevated by the UI / installer)
         if (cmd is "install" or "uninstall")
         {
             var msg = cmd == "install" ? Setup.Install() : Setup.Uninstall();
-            MessageBox.Show(msg, "ZCinema Sound", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            if (quiet)
+            {
+                try { Console.WriteLine(msg); } catch { }
+                Environment.ExitCode = msg.StartsWith("Equalizer APO config folder not found", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
+            }
+            else
+            {
+                MessageBox.Show(msg, "ZCinema Sound", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
             return;
         }
 

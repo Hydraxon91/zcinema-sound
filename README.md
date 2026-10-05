@@ -13,6 +13,21 @@
 The current app lives in `src-app\` (`ZCinemaSound.Core` + `ZCinemaSound.App` +
 `ZCinemaSound.Tests`). It needs the [.NET 10 SDK](https://dotnet.microsoft.com/) to build.
 
+### Install (recommended)
+
+Download **`ZCinemaSound-Setup.exe`** from the
+[latest release](https://github.com/Hydraxon91/zcinema-sound/releases).
+
+- **Equalizer APO is required** (GPLv2 — not bundled). The installer detects it
+  and, if missing, opens its download page and waits for you to install it, then
+  click **Retry** (or Cancel to abort).
+- After setup, open **Equalizer APO's Device Selector**, tick
+  **Speakers (Z Cinéma)**, click OK, then **reboot** so the effects attach.
+- The installer is **unsigned**, so SmartScreen may warn ("More info → Run anyway").
+- The same release also ships the portable **`ZCinemaSound.App.exe`** (no installer).
+
+### Build from source
+
 ```powershell
 cd src-app
 dotnet build
