@@ -43,6 +43,25 @@ public static class RemoteMap
         File.WriteAllText(MapPath(), json);
     }
 
+    // ---- import / export (backup + sharing) ----
+
+    public static string ToJson(IReadOnlyDictionary<string, string> map)
+        => JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true });
+
+    public static Dictionary<string, string> FromJson(string json)
+    {
+        var map = JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+        return map is null
+            ? new(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(map, StringComparer.OrdinalIgnoreCase);
+    }
+
+    public static void ExportTo(string path, IReadOnlyDictionary<string, string> map)
+        => File.WriteAllText(path, ToJson(map));
+
+    public static Dictionary<string, string> ImportFrom(string path)
+        => FromJson(File.ReadAllText(path));
+
     public static Dictionary<string, CustomPreset> ReadCustomSlots()
     {
         var path = PresetsPath();

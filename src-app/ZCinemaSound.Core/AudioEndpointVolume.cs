@@ -1,14 +1,21 @@
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace ZCinemaSound.Core;
 
+/// <summary>An active render endpoint as Windows names it ("Speakers (Z Cinéma)").</summary>
+public sealed record AudioEndpointDevice(string Id, string Guid, string Name);
+
 /// <summary>
-/// Minimal Core Audio interop: finds the Z Cinema render endpoint and exposes its
-/// master volume (0..1) and mute. No third-party dependency.
+/// Minimal Core Audio interop: finds render endpoints (matched by friendly name via
+/// the registry, which is reliable — the Core Audio property store returns empty
+/// strings for these) and exposes the selected device's master volume (0..1) and
+/// mute. No third-party dependency.
 /// </summary>
 public sealed class AudioEndpointVolume : IDisposable
 {
     private const string IID_EndpointVolume = "5CDF2C82-841E-4546-9722-0CF74078229A";
+    private const string RenderKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\MMDevices\Audio\Render";
 
     private IAudioEndpointVolume? _vol;
 
@@ -20,6 +27,8 @@ public sealed class AudioEndpointVolume : IDisposable
         _vol = vol; Name = name; EndpointGuid = endpointGuid;
     }
 
+    /// <summary>Open the first active endpoint whose name contains <paramref name="nameContains"/>,
+    /// else the system default render endpoint.</summary>
     public static AudioEndpointVolume? Open(string nameContains = "Z Cin")
     {
         try
@@ -27,32 +36,87 @@ public sealed class AudioEndpointVolume : IDisposable
             var en = (IMMDeviceEnumerator)(object)new MMDeviceEnumeratorComObject();
             IMMDevice? dev = null;
 
-            if (en.EnumAudioEndpoints(EDataFlow.eRender, 0x1 /*ACTIVE*/, out var col) == 0)
-            {
-                col.GetCount(out int n);
-                for (int i = 0; i < n; i++)
-                {
-                    col.Item(i, out var d);
-                    if (Matches(d, nameContains)) { dev = d; break; }
-                }
-            }
+            var match = ListRenderDevices()
+                .FirstOrDefault(d => d.Name.Contains(nameContains, StringComparison.OrdinalIgnoreCase));
+            if (match is not null) en.GetDevice(match.Id, out dev);
             if (dev is null) en.GetDefaultAudioEndpoint(EDataFlow.eRender, ERole.eConsole, out dev);
             if (dev is null) return null;
-
-            string name = GetString(dev, PKEY_FriendlyName) ?? GetString(dev, PKEY_DeviceDesc) ?? "";
-            string guid = "";
-            if (dev.GetId(out string id) == 0 && id.Length > 0)
-            {
-                int b = id.LastIndexOf('{');
-                if (b >= 0) guid = id.Substring(b);
-            }
-            var iid = new Guid(IID_EndpointVolume);
-            dev.Activate(ref iid, 23 /*CLSCTX_ALL*/, IntPtr.Zero, out var o);
-            return new AudioEndpointVolume((IAudioEndpointVolume)o, name, guid);
+            return Create(dev);
         }
         catch { return null; }
     }
 
+    /// <summary>Open a specific render endpoint by its device id.</summary>
+    public static AudioEndpointVolume? OpenById(string id)
+    {
+        if (string.IsNullOrEmpty(id)) return null;
+        try
+        {
+            var en = (IMMDeviceEnumerator)(object)new MMDeviceEnumeratorComObject();
+            return en.GetDevice(id, out var dev) == 0 && dev is not null ? Create(dev) : null;
+        }
+        catch { return null; }
+    }
+
+    private static AudioEndpointVolume Create(IMMDevice dev)
+    {
+        string guid = "";
+        if (dev.GetId(out string id) == 0 && id.Length > 0)
+        {
+            int b = id.LastIndexOf('{');
+            if (b >= 0) guid = id.Substring(b);
+        }
+        string name = FriendlyName(guid);
+        if (string.IsNullOrWhiteSpace(name)) name = guid;
+
+        var iid = new Guid(IID_EndpointVolume);
+        dev.Activate(ref iid, 23 /*CLSCTX_ALL*/, IntPtr.Zero, out var o);
+        return new AudioEndpointVolume((IAudioEndpointVolume)o, name, guid);
+    }
+
+    // ---- endpoint discovery (registry) ----
+
+    /// <summary>Active render endpoints, named the same way Windows does.</summary>
+    public static IReadOnlyList<AudioEndpointDevice> ListRenderDevices()
+    {
+        var list = new List<AudioEndpointDevice>();
+        try
+        {
+            using var root = Registry.LocalMachine.OpenSubKey(RenderKey);
+            if (root is null) return list;
+            foreach (var guid in root.GetSubKeyNames())
+            {
+                if (!guid.StartsWith('{')) continue;
+                using var key = root.OpenSubKey(guid);
+                if (key?.GetValue("DeviceState") is int state && (state & 1) == 0) continue; // not active
+                string name = FriendlyName(guid);
+                list.Add(new AudioEndpointDevice(
+                    "{0.0.0.00000000}." + guid, guid,
+                    string.IsNullOrWhiteSpace(name) ? guid : name));
+            }
+        }
+        catch { /* ignore */ }
+        return list;
+    }
+
+    /// <summary>Compose "Connector (FriendlyName)" from an endpoint's registry properties.</summary>
+    private static string FriendlyName(string guid)
+    {
+        if (string.IsNullOrEmpty(guid)) return "";
+        try
+        {
+            using var k = Registry.LocalMachine.OpenSubKey($@"{RenderKey}\{guid}\Properties");
+            if (k is null) return "";
+            // {a45c254e-…},2 = connector ("Speakers"); {b3f8fa53-…},6 = device name ("Z Cinéma")
+            string connector = k.GetValue("{a45c254e-df1c-4efd-8020-67d146a850e0},2") as string ?? "";
+            string friendly = k.GetValue("{b3f8fa53-0004-438e-9003-51a46e139bfc},6") as string ?? "";
+            if (connector.Length > 0 && friendly.Length > 0) return $"{connector} ({friendly})";
+            return friendly.Length > 0 ? friendly : connector;
+        }
+        catch { return ""; }
+    }
+
+    // ---- volume ----
     public float GetScalar()
     {
         if (_vol is null) return 0;
@@ -93,65 +157,9 @@ public sealed class AudioEndpointVolume : IDisposable
         if (_vol is not null) { try { Marshal.ReleaseComObject(_vol); } catch { } _vol = null; }
     }
 
-    // ---- helpers ----
-    private static readonly PROPERTYKEY PKEY_FriendlyName = new(new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"), 14);
-    private static readonly PROPERTYKEY PKEY_DeviceDesc = new(new Guid("a45c254e-df1c-4efd-8020-67d146a850e0"), 2);
-
-    private static bool Matches(IMMDevice dev, string needle)
-    {
-        try
-        {
-            if (dev.OpenPropertyStore(0 /*STGM_READ*/, out var store) != 0) return false;
-            return Contains(store, PKEY_FriendlyName, needle) || Contains(store, PKEY_DeviceDesc, needle);
-        }
-        catch { return false; }
-    }
-
-    private static string? GetString(IMMDevice dev, PROPERTYKEY key)
-    {
-        try
-        {
-            if (dev.OpenPropertyStore(0, out var store) != 0) return null;
-            if (store.GetValue(ref key, out var pv) != 0) return null;
-            try { return PvToString(pv); }
-            finally { PropVariantClear(ref pv); }
-        }
-        catch { return null; }
-    }
-
-    private static string? PvToString(in PROPVARIANT pv)
-        => pv.vt switch
-        {
-            31 => Marshal.PtrToStringUni(pv.p),   // VT_LPWSTR
-            8 => Marshal.PtrToStringBSTR(pv.p),   // VT_BSTR
-            _ => null,
-        };
-
-    private static bool Contains(IPropertyStore store, PROPERTYKEY key, string needle)
-    {
-        if (store.GetValue(ref key, out var pv) != 0) return false;
-        try
-        {
-            var s = PvToString(pv) ?? "";
-            return s.Contains(needle, StringComparison.OrdinalIgnoreCase);
-        }
-        finally { PropVariantClear(ref pv); }
-    }
-
-    [DllImport("ole32.dll")] private static extern int PropVariantClear(ref PROPVARIANT pv);
-
+    // ---- COM interop ----
     private enum EDataFlow { eRender = 0, eCapture = 1, eAll = 2 }
     private enum ERole { eConsole = 0, eMultimedia = 1, eCommunications = 2 }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct PROPERTYKEY
-    {
-        public Guid fmtid; public int pid;
-        public PROPERTYKEY(Guid f, int p) { fmtid = f; pid = p; }
-    }
-
-    [StructLayout(LayoutKind.Explicit)]
-    private struct PROPVARIANT { [FieldOffset(0)] public ushort vt; [FieldOffset(8)] public IntPtr p; }
 
     [ComImport, Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
     private class MMDeviceEnumeratorComObject { }
@@ -177,19 +185,9 @@ public sealed class AudioEndpointVolume : IDisposable
     private interface IMMDevice
     {
         [PreserveSig] int Activate(ref Guid iid, int ctx, IntPtr p, [MarshalAs(UnmanagedType.IUnknown)] out object o);
-        [PreserveSig] int OpenPropertyStore(int access, out IPropertyStore store);
+        [PreserveSig] int OpenPropertyStore(int access, out IntPtr store); // unused; kept for vtable order
         [PreserveSig] int GetId([MarshalAs(UnmanagedType.LPWStr)] out string id);
         [PreserveSig] int GetState(out int state);
-    }
-
-    [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF04"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    private interface IPropertyStore
-    {
-        [PreserveSig] int GetCount(out int c);
-        [PreserveSig] int GetAt(int i, out PROPERTYKEY k);
-        [PreserveSig] int GetValue(ref PROPERTYKEY k, out PROPVARIANT v);
-        [PreserveSig] int SetValue(ref PROPERTYKEY k, ref PROPVARIANT v);
-        [PreserveSig] int Commit();
     }
 
     [ComImport, Guid("5CDF2C82-841E-4546-9722-0CF74078229A"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

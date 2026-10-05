@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.1.3 — 2026-10-05
+
+- **Per-device profiles:** each audio device now keeps its own bass/treble/
+  dialogue/width/EQ/ceiling (stored per endpoint GUID). Pick the controlled
+  device from a selector in the **Output** panel.
+- **Endpoint name fixed:** devices are matched and labelled using the same names
+  Windows shows (`Speakers (Z Cinéma)`). The Core Audio property store returned
+  empty strings, so matching had been silently falling back to the default
+  device.
+- **Remote mapping import / export** (JSON) on the Remote tab.
+- **Lighter installer:** `ZCinemaSound-Setup-lite.exe` (framework-dependent; needs
+  the .NET 10 Desktop Runtime) alongside the self-contained `ZCinemaSound-Setup.exe`.
+- CI: GitHub Actions bumped to Node 24-native majors; more Core unit tests.
+
 ## v0.1.2 — 2026-10-05
 
 - **Installer:** the post-install **Open Equalizer APO Device Selector** step now

@@ -6,6 +6,11 @@ working setup — it's the plan for packaging.
 > **Direction:** the native **C#/.NET** app (`src-app\`) is now the product.
 > The PowerShell toolkit is **legacy/reference** — still functional, kept as the
 > regression harness until the `.exe` reaches full parity.
+>
+> **Status (v0.1.3):** shipped via GitHub Releases as `ZCinemaSound-Setup.exe`
+> (self-contained), `ZCinemaSound-Setup-lite.exe` (needs the .NET Desktop Runtime)
+> and portable `ZCinemaSound.App.exe`. Per-device profiles, a device selector and
+> remote mapping import/export are done — see `CHANGELOG.md`.
 
 ## 0. Done
 

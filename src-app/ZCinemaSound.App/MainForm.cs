@@ -22,6 +22,10 @@ public sealed class MainForm : Form, IActionHost
     private readonly List<Label> _rowValue = new();
 
     private AudioEndpointVolume? _volume;
+    private readonly DeviceProfiles _deviceProfiles = new();
+    private readonly ThemedDropDown _deviceCombo = new();
+    private List<AudioEndpointDevice> _devices = new();
+    private bool _deviceLoading;
     private readonly System.Windows.Forms.Timer _volTimer = new() { Interval = 350 };
     private bool _volSyncing;
     private readonly EventWaitHandle _showEvent = new(false, EventResetMode.AutoReset, @"Local\ZCinema_Show");
@@ -108,6 +112,7 @@ public sealed class MainForm : Form, IActionHost
 
         LoadProfileIntoUi();
         _volume = AudioEndpointVolume.Open();
+        PopulateDevices();
         SyncVolumeFromDevice();
         if (_volume is not null && !EqualizerApo.IsAttached(_volume.EndpointGuid))
         {
@@ -222,6 +227,11 @@ public sealed class MainForm : Form, IActionHost
         btnCal.Click += (_, _) => Calibrate();
         output.Controls.Add(btnCal);
 
+        // device selector lives in the panel caption strip (no extra row needed)
+        _deviceCombo.Left = 338; _deviceCombo.Top = 3; _deviceCombo.Width = 300; _deviceCombo.Height = 22;
+        _deviceCombo.SelectedIndexChanged += (_, _) => { if (!_deviceLoading) SelectDevice(_deviceCombo.SelectedIndex); };
+        output.Controls.Add(_deviceCombo);
+
         var tone = new GlassPanel { Left = 14, Top = 160, Width = 652, Height = 176, Caption = "Tone" };
         Row(tone, "Bass", _bass, 28);
         Row(tone, "Treble", _treble, 62);
@@ -314,7 +324,7 @@ public sealed class MainForm : Form, IActionHost
         if (dlg.ShowDialog(this) != DialogResult.OK) return;
         var p = EqualizerApo.LoadProfile();
         p.PreampDb = dlg.PreampDb;
-        EqualizerApo.SaveProfile(p);
+        Persist(p);
         ApplyToUi(p);
         _status.Text = $"Ceiling set to {dlg.PreampDb} dB";
     }
@@ -340,7 +350,7 @@ public sealed class MainForm : Form, IActionHost
         p.DialogGain = c.Dialog;
         p.Width = c.Width / 100.0;
         p.EqGains = c.Eq;
-        EqualizerApo.SaveProfile(p);
+        Persist(p);
         ApplyToUi(p);
         _status.Text = $"Loaded Custom {slot}";
     }
@@ -382,7 +392,7 @@ public sealed class MainForm : Form, IActionHost
         _remoteRoot.BackColor = Theme.Bg;
         _remoteRoot.Visible = false;
 
-        var panel = new GlassPanel { Left = 14, Top = 6, Width = 652, Height = 616, Caption = "Remote mapping" };
+        var panel = new GlassPanel { Left = 14, Top = 6, Width = 652, Height = 652, Caption = "Remote mapping" };
         _remoteRoot.Controls.Add(panel);
 
         var help = new Label
@@ -409,6 +419,7 @@ public sealed class MainForm : Form, IActionHost
         _grid.Columns.Add(combo);
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Value (app / script / url / keys)", FillWeight = 240 });
         Theme.StyleGrid(_grid);
+        _grid.CellPainting += PaintComboCell;
         _grid.EditingControlShowing += (_, e) =>
         {
             if (e.Control is ComboBox cb)
@@ -424,17 +435,19 @@ public sealed class MainForm : Form, IActionHost
         };
         panel.Controls.Add(_grid);
 
-        var bar = new FlowLayoutPanel { Left = 14, Top = 504, Width = 624, Height = 36, BackColor = Color.Transparent };
+        var bar = new FlowLayoutPanel { Left = 14, Top = 498, Width = 624, Height = 64, BackColor = Color.Transparent };
         var btnLearn = Mk("Learn (press a button)", 150);
         var btnSave = Mk("Save", 66);
         var btnDefaults = Mk("Restore defaults", 108);
         var btnReload = Mk("Reload file", 86);
         var btnBrowse = Mk("Browse...", 78);
+        var btnExport = Mk("Export...", 80);
+        var btnImport = Mk("Import...", 80);
         var btnExit = Mk("Exit", 56);
-        bar.Controls.AddRange(new Control[] { btnLearn, btnSave, btnDefaults, btnReload, btnBrowse, _chkRemote, btnExit });
+        bar.Controls.AddRange(new Control[] { btnLearn, btnSave, btnDefaults, btnReload, btnBrowse, btnExport, btnImport, _chkRemote, btnExit });
         panel.Controls.Add(bar);
 
-        _remoteStatus.Left = 14; _remoteStatus.Top = 548; _remoteStatus.Width = 624; _remoteStatus.Height = 52;
+        _remoteStatus.Left = 14; _remoteStatus.Top = 566; _remoteStatus.Width = 624; _remoteStatus.Height = 76;
         _remoteStatus.ForeColor = Theme.Muted; _remoteStatus.BackColor = Color.Transparent; _remoteStatus.Font = Theme.ValueFont;
         panel.Controls.Add(_remoteStatus);
 
@@ -444,6 +457,8 @@ public sealed class MainForm : Form, IActionHost
         btnReload.Click += (_, _) => { LoadRemoteGrid(); _remoteStatus.Text = "Reloaded from file."; };
         btnExit.Click += (_, _) => ExitApp();
         btnBrowse.Click += (_, _) => BrowseIntoSelectedRow();
+        btnExport.Click += (_, _) => ExportRemote();
+        btnImport.Click += (_, _) => ImportRemote();
         _chkRemote.CheckedChanged += (_, _) => _remoteEnabled = _chkRemote.Checked;
 
         LoadRemoteGrid();
@@ -466,6 +481,26 @@ public sealed class MainForm : Form, IActionHost
             sel ? Theme.Minor : Theme.Accent, TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
     }
 
+    /// <summary>Repaint combo cells with a themed button (the default one is white).</summary>
+    private void PaintComboCell(object? sender, DataGridViewCellPaintingEventArgs e)
+    {
+        if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+        if (_grid.Columns[e.ColumnIndex] is not DataGridViewComboBoxColumn) return;
+
+        e.PaintBackground(e.CellBounds, true);
+        var r = e.CellBounds;
+        string text = e.FormattedValue?.ToString() ?? "";
+        TextRenderer.DrawText(e.Graphics, text, Theme.ButtonFont,
+            new Rectangle(r.X + 5, r.Y, r.Width - 26, r.Height), Theme.Accent,
+            TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
+
+        var btn = new Rectangle(r.Right - 21, r.Y + 2, 19, Math.Max(10, r.Height - 3));
+        using (var b = new SolidBrush(Theme.AccentDark)) e.Graphics.FillRectangle(b, btn);
+        TextRenderer.DrawText(e.Graphics, "\u25BC", Theme.ButtonFont, btn, Theme.Minor,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+        e.Handled = true;
+    }
+
     private void LoadRemoteGrid()
     {
         var map = RemoteMap.Read();
@@ -484,10 +519,10 @@ public sealed class MainForm : Form, IActionHost
         }
     }
 
-    private void SaveRemoteGrid()
+    private Dictionary<string, string> BuildMapFromGrid(out List<string> warns)
     {
         var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        var warns = new List<string>();
+        warns = new List<string>();
         foreach (DataGridViewRow r in _grid.Rows)
         {
             var b = r.Cells[0].Value?.ToString();
@@ -503,8 +538,46 @@ public sealed class MainForm : Form, IActionHost
             }
             else if (a != "none") map[b] = a;
         }
+        return map;
+    }
+
+    private void SaveRemoteGrid()
+    {
+        var map = BuildMapFromGrid(out var warns);
         RemoteMap.Save(map);
         _remoteStatus.Text = warns.Count > 0 ? "Saved with notes: " + string.Join("; ", warns) : "Saved to " + RemoteMap.MapPath();
+    }
+
+    private void ExportRemote()
+    {
+        var map = BuildMapFromGrid(out _);
+        using var dlg = new SaveFileDialog
+        {
+            Title = "Export remote mapping",
+            Filter = "JSON (*.json)|*.json|All files (*.*)|*.*",
+            FileName = "zcinema-remote.json",
+        };
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+        try { RemoteMap.ExportTo(dlg.FileName, map); _remoteStatus.Text = "Exported " + Path.GetFileName(dlg.FileName); }
+        catch (Exception ex) { _remoteStatus.Text = "Export failed: " + ex.Message; }
+    }
+
+    private void ImportRemote()
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Title = "Import remote mapping",
+            Filter = "JSON (*.json)|*.json|All files (*.*)|*.*",
+        };
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+        try
+        {
+            var map = RemoteMap.ImportFrom(dlg.FileName);
+            RemoteMap.Save(map);
+            LoadRemoteGrid();
+            _remoteStatus.Text = $"Imported {map.Count} mappings from {Path.GetFileName(dlg.FileName)}";
+        }
+        catch (Exception ex) { _remoteStatus.Text = "Import failed: " + ex.Message; }
     }
 
     private void BrowseIntoSelectedRow()
@@ -675,10 +748,65 @@ public sealed class MainForm : Form, IActionHost
     {
         try
         {
-            EqualizerApo.SaveProfile(FromUi());
-            _status.Text = $"Saved {DateTime.Now:HH:mm:ss}  ->  {EqualizerApo.ProfilePath()}";
+            Persist(FromUi());
+            _status.Text = $"Saved {DateTime.Now:HH:mm:ss}  ->  {_volume?.Name}";
         }
         catch (Exception ex) { _status.Text = "Write failed: " + ex.Message; }
+    }
+
+    /// <summary>Write the profile to Equalizer APO and remember it for the active device.</summary>
+    private void Persist(ZCinemaProfile p)
+    {
+        EqualizerApo.SaveProfile(p);
+        if (_volume is not null && _volume.EndpointGuid.Length > 0)
+            _deviceProfiles.Save(_volume.EndpointGuid, p);
+    }
+
+    // ------------------------------------------------------ device selection
+    private void PopulateDevices()
+    {
+        _devices = AudioEndpointVolume.ListRenderDevices().ToList();
+        int idx = _volume is null ? -1
+            : _devices.FindIndex(d => string.Equals(d.Guid, _volume.EndpointGuid, StringComparison.OrdinalIgnoreCase));
+        if (idx < 0 && _devices.Count > 0) idx = 0;
+        _deviceLoading = true;
+        _deviceCombo.SetItems(_devices.Select(d => d.Name), idx);
+        _deviceLoading = false;
+        if (idx >= 0) SelectDevice(idx);
+    }
+
+    private void SelectDevice(int index)
+    {
+        if (index < 0 || index >= _devices.Count) return;
+        var d = _devices[index];
+        if (_volume is null || !string.Equals(_volume.EndpointGuid, d.Guid, StringComparison.OrdinalIgnoreCase))
+        {
+            try { _volume?.Dispose(); } catch { }
+            _volume = AudioEndpointVolume.OpenById(d.Id);
+        }
+        SyncVolumeFromDevice();
+        ApplyDeviceProfile();
+    }
+
+    /// <summary>Load this device's stored profile, or adopt the current settings as its first one.</summary>
+    private void ApplyDeviceProfile()
+    {
+        var guid = _volume?.EndpointGuid ?? "";
+        if (guid.Length == 0) return;
+        var stored = _deviceProfiles.Load(guid);
+        if (stored is not null)
+        {
+            EqualizerApo.SaveProfile(stored);
+            ApplyToUi(stored);
+            _status.Text = $"Profile for {_volume!.Name}";
+        }
+        else
+        {
+            var current = EqualizerApo.LoadProfile();
+            _deviceProfiles.Save(guid, current);
+            ApplyToUi(current);
+            _status.Text = $"New per-device profile for {_volume!.Name}";
+        }
     }
 
     private static Icon LoadAppIcon()

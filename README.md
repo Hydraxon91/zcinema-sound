@@ -27,6 +27,10 @@ Download **`ZCinemaSound-Setup.exe`** from the
   **Speakers (Z Cinéma)**, click OK, then **reboot** so the effects attach.
 - The installer is **unsigned**, so SmartScreen may warn ("More info → Run anyway").
 - The same release also ships the portable **`ZCinemaSound.App.exe`** (no installer).
+- **Smaller download?** **`ZCinemaSound-Setup-lite.exe`** is framework-dependent and
+  needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
+  (the installer checks for it). Use the regular `ZCinemaSound-Setup.exe` if you'd
+  rather not install the runtime.
 
 ### Build from source
 

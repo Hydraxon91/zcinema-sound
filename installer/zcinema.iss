@@ -3,29 +3,38 @@
 ; prerequisite* (GPLv2) — it is never bundled; the installer links to its
 ; official download and aborts until it is present.
 ;
-; Build:  ISCC.exe /DAppExeDir="<publish dir>" /DVersion=0.1.2 zcinema.iss
+; Build:  ISCC.exe /DAppExeDir="<publish dir>" /DVersion=0.1.3 zcinema.iss
 ; (or use ..\installer\build-installer.ps1)
 
 #ifndef AppExeDir
   #define AppExeDir "..\src-app\ZCinemaSound.App\bin\Release\net10.0-windows\win-x64\publish"
 #endif
 #ifndef Version
-  #define Version "0.1.2"
+  #define Version "0.1.3"
 #endif
 #ifndef OutputDir
   #define OutputDir "output"
 #endif
+#ifndef OutputBaseFilename
+  #define OutputBaseFilename "ZCinemaSound-Setup"
+#endif
+; /DFrameworkDependent=1 builds the small installer that needs the .NET Desktop Runtime.
+#ifdef FrameworkDependent
+  #define AppNameExtra " (lite)"
+#else
+  #define AppNameExtra ""
+#endif
 
 [Setup]
 AppId={{B7E1C2D4-9A3F-4C6E-8B2A-1D5E7F903C11}
-AppName=ZCinema Sound
+AppName=ZCinema Sound{#AppNameExtra}
 AppVersion={#Version}
 AppPublisher=ZCinema Sound
 DefaultDirName={autopf}\ZCinema Sound
 DefaultGroupName=ZCinema Sound
 DisableProgramGroupPage=yes
 OutputDir={#OutputDir}
-OutputBaseFilename=ZCinemaSound-Setup
+OutputBaseFilename={#OutputBaseFilename}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
@@ -101,28 +110,52 @@ begin
   Result := DeviceSelectorPath('') <> '';
 end;
 
+#ifdef FrameworkDependent
+function DesktopRuntimeInstalled(): Boolean;
+begin
+  Result := DirExists(ExpandConstant('{pf}\dotnet\shared\Microsoft.WindowsDesktop.App'));
+end;
+#endif
+
 function InitializeSetup(): Boolean;
 var
   r: Integer;
 begin
-  if EqualizerApoInstalled() then
-  begin
-    Result := True;
-    Exit;
-  end;
+  Result := True;
 
-  ShellExec('open', 'https://sourceforge.net/projects/equalizerapo/', '', '', SW_SHOWNORMAL, ewNoWait, r);
-  while not EqualizerApoInstalled() do
+  if not EqualizerApoInstalled() then
   begin
-    r := MsgBox('Equalizer APO is required (GPLv2 - it is not bundled with this installer).' + #13#10 + #13#10 +
-                'A browser was opened to its download page. Install Equalizer APO, then click Retry.' + #13#10 + #13#10 +
-                'https://sourceforge.net/projects/equalizerapo/',
-                mbError, MB_RETRYCANCEL);
-    if r = IDCANCEL then
+    ShellExec('open', 'https://sourceforge.net/projects/equalizerapo/', '', '', SW_SHOWNORMAL, ewNoWait, r);
+    while not EqualizerApoInstalled() do
     begin
-      Result := False;
-      Exit;
+      r := MsgBox('Equalizer APO is required (GPLv2 - it is not bundled with this installer).' + #13#10 + #13#10 +
+                  'A browser was opened to its download page. Install Equalizer APO, then click Retry.' + #13#10 + #13#10 +
+                  'https://sourceforge.net/projects/equalizerapo/',
+                  mbError, MB_RETRYCANCEL);
+      if r = IDCANCEL then
+      begin
+        Result := False;
+        Exit;
+      end;
     end;
   end;
-  Result := True;
+
+#ifdef FrameworkDependent
+  if not DesktopRuntimeInstalled() then
+  begin
+    ShellExec('open', 'https://dotnet.microsoft.com/download/dotnet/10.0', '', '', SW_SHOWNORMAL, ewNoWait, r);
+    while not DesktopRuntimeInstalled() do
+    begin
+      r := MsgBox('This "lite" installer needs the .NET 10 Desktop Runtime (it is not bundled).' + #13#10 + #13#10 +
+                  'A browser was opened to its download page. Install it, then click Retry.' + #13#10 + #13#10 +
+                  'Want no runtime dependency? Use the standard ZCinemaSound-Setup.exe instead.',
+                  mbError, MB_RETRYCANCEL);
+      if r = IDCANCEL then
+      begin
+        Result := False;
+        Exit;
+      end;
+    end;
+  end;
+#endif
 end;

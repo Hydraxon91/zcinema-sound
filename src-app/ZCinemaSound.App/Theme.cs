@@ -67,6 +67,8 @@ public static class Theme
         g.EnableHeadersVisualStyles = false;
         g.BackgroundColor = Color.FromArgb(0x07, 0x05, 0x03);
         g.BorderStyle = BorderStyle.None;
+        g.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.None; // no white raised edges
+        g.RowHeadersBorderStyle = DataGridViewHeaderBorderStyle.None;
         g.GridColor = Color.FromArgb(0x2A, 0x1E, 0x12);
         g.DefaultCellStyle.BackColor = Color.FromArgb(0x0B, 0x09, 0x07);
         g.DefaultCellStyle.ForeColor = Edge;
