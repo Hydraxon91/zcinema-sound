@@ -7,14 +7,14 @@ working setup — it's the plan for packaging.
 > The PowerShell toolkit is **legacy/reference** — still functional, kept as the
 > regression harness until the `.exe` reaches full parity.
 >
-> **Status (v0.2.0):** shipped via GitHub Releases as `ZCinemaSound-Setup.exe`
+> **Status (v0.3.0):** shipped via GitHub Releases as `ZCinemaSound-Setup.exe`
 > (self-contained), `ZCinemaSound-Setup-lite.exe` (needs the .NET Desktop Runtime)
-> and portable `ZCinemaSound.App.exe`. Per-device profiles with **per-device EQ
-> scoping**, a device selector, remote import/export, tray preset quick-switching
-> and one-file backup/restore are done — see `CHANGELOG.md`.
+> and portable `ZCinemaSound.App.exe`. Per-device EQ scoping, a device selector,
+> remote import/export, tray quick-switching, one-file backup/restore, first-run
+> guidance and **high-DPI (PerMonitorV2)** support are done — see `CHANGELOG.md`.
 >
-> **Next (Batch 6):** DPI (`PerMonitorV2`) + layout scaling pass, first-run guidance,
-> uninstall data cleanup, docs.
+> **Next:** code signing (optional; gated on an Authenticode certificate) and
+> retiring the legacy PowerShell toolkit.
 
 ## 0. Done
 
