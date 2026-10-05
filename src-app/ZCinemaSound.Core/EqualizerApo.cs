@@ -29,6 +29,40 @@ public static class EqualizerApo
 
     public static bool IsInstalled() => Directory.Exists(ConfigDir());
 
+    public static string? InstallDir()
+    {
+        try
+        {
+            using var key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\EqualizerAPO");
+            return key?.GetValue("InstallPath") as string;
+        }
+        catch { return null; }
+    }
+
+    public static string? DeviceSelectorPath()
+    {
+        var dir = InstallDir();
+        if (string.IsNullOrEmpty(dir)) return null;
+        foreach (var n in new[] { "DeviceSelector.exe", "Configurator.exe" })
+        {
+            var p = Path.Combine(dir, n);
+            if (File.Exists(p)) return p;
+        }
+        return null;
+    }
+
+    /// <summary>True if Equalizer APO is attached to this endpoint (Child APO record).</summary>
+    public static bool IsAttached(string endpointGuid)
+    {
+        if (string.IsNullOrEmpty(endpointGuid)) return false;
+        try
+        {
+            using var k = Registry.LocalMachine.OpenSubKey($@"SOFTWARE\EqualizerAPO\Child APOs\{endpointGuid}");
+            return k is not null;
+        }
+        catch { return false; }
+    }
+
     /// <summary>Write text as ASCII with no BOM (Equalizer APO requirement).</summary>
     public static void WriteAscii(string path, string text)
         => File.WriteAllText(path, text, new ASCIIEncoding());

@@ -8,6 +8,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: windows-latest
@@ -21,11 +24,25 @@ jobs:
       - name: Test
         run: dotnet test src-app/ZCinemaSound.Tests --nologo
 
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          # Prefer the pushed tag (v0.1.1 -> 0.1.1); fall back to the csproj for manual runs.
+          $ver = '${{ github.ref_name }}' -replace '^v', ''
+          if ($ver -notmatch '^\d+\.\d+\.\d+') {
+            [xml]$csproj = Get-Content -Raw 'src-app/ZCinemaSound.App/ZCinemaSound.App.csproj'
+            $ver = @($csproj.Project.PropertyGroup.Version | Where-Object { $_ })[0]
+          }
+          "version=$ver" >> $env:GITHUB_OUTPUT
+          Write-Host "Resolved version: $ver"
+
       - name: Publish app (single-file, self-contained)
         run: >
           dotnet publish src-app/ZCinemaSound.App -c Release -r win-x64
           --self-contained true -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:Version=${{ steps.ver.outputs.version }}
 
       - name: Install Inno Setup
         run: choco install innosetup -y --no-progress
@@ -34,7 +51,7 @@ jobs:
         shell: pwsh
         run: |
           $pub = Join-Path $env:GITHUB_WORKSPACE 'src-app\ZCinemaSound.App\bin\Release\net10.0-windows\win-x64\publish'
-          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppExeDir=$pub" "/DVersion=0.1.0" 'installer\zcinema.iss'
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppExeDir=$pub" "/DVersion=${{ steps.ver.outputs.version }}" 'installer\zcinema.iss'
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4

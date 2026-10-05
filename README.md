@@ -13,6 +13,8 @@
 The current app lives in `src-app\` (`ZCinemaSound.Core` + `ZCinemaSound.App` +
 `ZCinemaSound.Tests`). It needs the [.NET 10 SDK](https://dotnet.microsoft.com/) to build.
 
+![ZCinema Sound app](docs/images/screenshot.png)
+
 ### Install (recommended)
 
 Download **`ZCinemaSound-Setup.exe`** from the

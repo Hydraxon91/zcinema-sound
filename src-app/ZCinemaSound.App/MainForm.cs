@@ -41,6 +41,7 @@ public sealed class MainForm : Form, IActionHost
     private readonly NotifyIcon _tray = new();
     private bool _loading;
     private bool _exiting;
+    private bool _balloonShown;
 
     // remote
     private readonly HidReader _reader = new();
@@ -102,16 +103,17 @@ public sealed class MainForm : Form, IActionHost
 
         FormClosing += (_, e) =>
         {
-            if (!_exiting)
-            {
-                e.Cancel = true; Hide();
-                _tray.ShowBalloonTip(3000, "ZCinema Sound", "Still running in the tray.", ToolTipIcon.Info);
-            }
+            if (!_exiting) { e.Cancel = true; HideToTray(); }
         };
 
         LoadProfileIntoUi();
         _volume = AudioEndpointVolume.Open();
         SyncVolumeFromDevice();
+        if (_volume is not null && !EqualizerApo.IsAttached(_volume.EndpointGuid))
+        {
+            _status.Text = "Note: Equalizer APO isn't attached to the Z Cinema endpoint yet - open its Device Selector and reboot.";
+            _status.ForeColor = Theme.Accent;
+        }
         _volTimer.Tick += (_, _) => SyncVolumeFromDevice();
         _volTimer.Start();
         _showTimer.Tick += (_, _) => { if (_showEvent.WaitOne(0)) ShowApp(); };
@@ -155,7 +157,7 @@ public sealed class MainForm : Form, IActionHost
         min.MouseEnter += (_, _) => min.ForeColor = Theme.Minor; min.MouseLeave += (_, _) => min.ForeColor = Theme.Accent;
         close.MouseEnter += (_, _) => close.ForeColor = Theme.Minor; close.MouseLeave += (_, _) => close.ForeColor = Theme.Accent;
         min.Click += (_, _) => WindowState = FormWindowState.Minimized;
-        close.Click += (_, _) => ExitApp();
+        close.Click += (_, _) => HideToTray();
 
         foreach (Control c in new Control[] { bar, pic, title }) c.MouseDown += DragWindow;
     }
@@ -235,7 +237,7 @@ public sealed class MainForm : Form, IActionHost
 
         _presetSeg.Items = PresetNames;
         _presetSeg.SelectedIndex = -1; // show none until the user picks one
-        _presetSeg.Left = 14; _presetSeg.Top = 592; _presetSeg.Width = 440; _presetSeg.Height = 34;
+        _presetSeg.Left = 14; _presetSeg.Top = 592; _presetSeg.Width = 340; _presetSeg.Height = 34;
         _presetSeg.SelectedIndexChanged += (_, _) =>
         {
             if (_loading || _presetSeg.SelectedIndex < 0) return;
@@ -246,14 +248,24 @@ public sealed class MainForm : Form, IActionHost
         };
         _soundRoot.Controls.Add(_presetSeg);
 
-        var lblSave = new Label { Text = "Save:", Left = 466, Top = 582, Width = 42, ForeColor = Theme.Edge, BackColor = Color.Transparent };
+        var lblSave = new Label { Text = "Save:", Left = 362, Top = 600, Width = 40, ForeColor = Theme.Edge, BackColor = Color.Transparent };
         _soundRoot.Controls.Add(lblSave);
         for (int i = 1; i <= 3; i++)
         {
             int slot = i;
-            var b = new Button { Text = slot.ToString(), Left = 512 + (i - 1) * 44, Top = 578, Width = 40, Height = 28 };
+            var b = new Button { Text = slot.ToString(), Left = 406 + (i - 1) * 34, Top = 595, Width = 30, Height = 28 };
             Theme.StyleButton(b);
             b.Click += (_, _) => SaveCustomSlot(slot.ToString());
+            _soundRoot.Controls.Add(b);
+        }
+        var lblLoad = new Label { Text = "Load:", Left = 512, Top = 600, Width = 36, ForeColor = Theme.Edge, BackColor = Color.Transparent };
+        _soundRoot.Controls.Add(lblLoad);
+        for (int i = 1; i <= 3; i++)
+        {
+            int slot = i;
+            var b = new Button { Text = slot.ToString(), Left = 550 + (i - 1) * 34, Top = 595, Width = 30, Height = 28 };
+            Theme.StyleButton(b);
+            b.Click += (_, _) => LoadCustomSlot(slot.ToString());
             _soundRoot.Controls.Add(b);
         }
 
@@ -314,6 +326,23 @@ public sealed class MainForm : Form, IActionHost
         slots[slot] = new CustomPreset(p.PreampDb, p.BassGain, p.TrebleGain, p.DialogGain, p.Width * 100.0, p.EqGains);
         RemoteMap.SaveCustomSlots(slots);
         _status.Text = $"Saved current settings to Custom {slot}";
+    }
+
+    private void LoadCustomSlot(string slot)
+    {
+        var slots = RemoteMap.ReadCustomSlots();
+        if (!slots.TryGetValue(slot, out var c)) { _status.Text = $"Custom {slot} is empty."; return; }
+        var p = EqualizerApo.LoadProfile();
+        p.PreampDb = c.Preamp;
+        p.BassGain = c.Bass;
+        p.SubGain = Math.Round(c.Bass * 0.6, 1);
+        p.TrebleGain = c.Treble;
+        p.DialogGain = c.Dialog;
+        p.Width = c.Width / 100.0;
+        p.EqGains = c.Eq;
+        EqualizerApo.SaveProfile(p);
+        ApplyToUi(p);
+        _status.Text = $"Loaded Custom {slot}";
     }
 
     private void Row(Control parent, string name, LedSlider track, int y)
@@ -525,6 +554,16 @@ public sealed class MainForm : Form, IActionHost
     public void ShowApp() => BeginInvoke(() => { Show(); WindowState = FormWindowState.Normal; Activate(); });
     public void SendKeys(string text) => System.Windows.Forms.SendKeys.SendWait(text);
 
+    private void HideToTray()
+    {
+        Hide(); ShowInTaskbar = false;
+        if (!_balloonShown)
+        {
+            _tray.ShowBalloonTip(3000, "ZCinema Sound", "Still running in the tray - remote mappings stay active.", ToolTipIcon.Info);
+            _balloonShown = true;
+        }
+    }
+
     // --------------------------------------------------------------- tray
     private void BuildTray()
     {
@@ -533,6 +572,11 @@ public sealed class MainForm : Form, IActionHost
         menu.Items.Add("Open control panel", null, (_, _) => ShowApp());
         menu.Items.Add("Install / update profile", null, (_, _) => RunElevated("install"));
         menu.Items.Add("Bypass processing", null, (_, _) => ActionRunner.Run("bypass", this));
+        menu.Items.Add("Open Equalizer APO Device Selector", null, (_, _) =>
+        {
+            var ds = EqualizerApo.DeviceSelectorPath();
+            if (ds is not null) { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(ds) { UseShellExecute = true }); } catch { } }
+        });
         menu.Items.Add(new ToolStripSeparator());
         var miRemote = new ToolStripMenuItem("Remote mapping") { CheckOnClick = true, Checked = true };
         miRemote.CheckedChanged += (_, _) => { _remoteEnabled = miRemote.Checked; _chkRemote.Checked = miRemote.Checked; };

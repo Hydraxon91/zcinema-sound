@@ -13,8 +13,12 @@ public sealed class AudioEndpointVolume : IDisposable
     private IAudioEndpointVolume? _vol;
 
     public string Name { get; private set; } = "";
+    public string EndpointGuid { get; private set; } = "";
 
-    private AudioEndpointVolume(IAudioEndpointVolume vol, string name) { _vol = vol; Name = name; }
+    private AudioEndpointVolume(IAudioEndpointVolume vol, string name, string endpointGuid)
+    {
+        _vol = vol; Name = name; EndpointGuid = endpointGuid;
+    }
 
     public static AudioEndpointVolume? Open(string nameContains = "Z Cin")
     {
@@ -36,9 +40,15 @@ public sealed class AudioEndpointVolume : IDisposable
             if (dev is null) return null;
 
             string name = GetString(dev, PKEY_FriendlyName) ?? GetString(dev, PKEY_DeviceDesc) ?? "";
+            string guid = "";
+            if (dev.GetId(out string id) == 0 && id.Length > 0)
+            {
+                int b = id.LastIndexOf('{');
+                if (b >= 0) guid = id.Substring(b);
+            }
             var iid = new Guid(IID_EndpointVolume);
             dev.Activate(ref iid, 23 /*CLSCTX_ALL*/, IntPtr.Zero, out var o);
-            return new AudioEndpointVolume((IAudioEndpointVolume)o, name);
+            return new AudioEndpointVolume((IAudioEndpointVolume)o, name, guid);
         }
         catch { return null; }
     }
