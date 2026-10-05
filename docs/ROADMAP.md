@@ -92,7 +92,17 @@ Constraints (deliberate):
   buttons may double-fire; suppressing that needs a kernel tool (we won't).
 - Reading the Keyboard collection requires Administrator; Consumer/Vendor do not.
 
-Status: Phase 1 probe built (`tools\Remote-Probe.ps1`).
+Status: Phase 1 probe built (`tools\Remote-Probe.ps1`); protocol in
+`docs\REMOTE-CODES.md`. Phase 2/3 built and **merged into the app**: the GUI is
+now a **tray app** that hosts the remote bridge in-process (single-instance),
+hides to tray on close, and offers **Start with Windows** (autostart launches it
+with `-Tray`). Only keys Windows ignores are shown (native transport/volume/back
+hidden); the **Media Player** button is exposed too since it does nothing on
+Win11. Action library: `preset:`, `custom:`, `gui`, `bypass`,
+`sound:` (dialogue/width/ceiling ±), `media:`, `app:`, `script:`, `url:`, `keys:`,
+`none`. **Learn** captures any free button, and **Browse...** fills the Value from
+a file picker. The standalone `tools\Remote-Bridge.ps1` remains for headless use
+and stands down while the app is running (shared mutex).
 
 ## 4. CI/CD
 

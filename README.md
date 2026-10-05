@@ -29,7 +29,8 @@ kernel-level anti-cheat (EAC/BattlEye/Vanguard).
 | EQ | Parametric bands (edit text or use the Peace GUI) |
 | TruSurround-ish width | Stereo crossfeed (`Copy:` lines) |
 | Dialogue clarity | ~3 kHz presence boost |
-| Live GUI | `tools\ZCinema-GUI.ps1` — Bass, Treble, Dialogue, Width, ceiling + 8-band EQ sliders |
+| Live GUI | `tools\ZCinema-GUI.ps1` — **Sound** tab (Bass, Treble, Dialogue, Width, ceiling + 8-band EQ) and **Remote** tab (map remote buttons) |
+| Tray app | The GUI **hosts the remote bridge** and lives in the notification tray: closing hides to tray, double-click/Open restores it, **Exit** quits. Optional **Start with Windows** (tray menu). |
 | Presets | Flat / Music / Movies / Night / Vocal / V-Shape (with EQ), plus 3 savable Custom slots |
 
 ## What you don't get
@@ -91,6 +92,11 @@ needed):
 
 `launchers\` has the same actions as individual `.bat` files, handy for desktop
 shortcuts. A proper one-file `.exe` is planned — see `docs\ROADMAP.md`.
+
+The control panel (option 1) is a **tray app**: it also runs the remote bridge,
+so your mapped remote buttons work while it's open. Closing the window keeps it
+in the tray; use **Exit** (tray menu or the Remote tab) to quit, and
+**Start with Windows** in the tray menu to keep mappings active at login.
 
 ## Install
 
