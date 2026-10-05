@@ -81,22 +81,22 @@ begin
     Result := '';
 end;
 
-function DeviceSelectorPath(): string;
+function DeviceSelectorPath(Param: String): String;
 var
-  base: string;
+  epath: String;
 begin
-  base := EqualizerApoInstallPath();
+  epath := EqualizerApoInstallPath();
   Result := '';
-  if base = '' then Exit;
-  if FileExists(AddBackslash(base) + 'DeviceSelector.exe') then
-    Result := AddBackslash(base) + 'DeviceSelector.exe'
-  else if FileExists(AddBackslash(base) + 'Configurator.exe') then
-    Result := AddBackslash(base) + 'Configurator.exe';
+  if epath = '' then Exit;
+  if FileExists(AddBackslash(epath) + 'DeviceSelector.exe') then
+    Result := AddBackslash(epath) + 'DeviceSelector.exe'
+  else if FileExists(AddBackslash(epath) + 'Configurator.exe') then
+    Result := AddBackslash(epath) + 'Configurator.exe';
 end;
 
 function HasDeviceSelector(): Boolean;
 begin
-  Result := DeviceSelectorPath() <> '';
+  Result := DeviceSelectorPath('') <> '';
 end;
 
 function InitializeSetup(): Boolean;
