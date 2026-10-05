@@ -17,6 +17,9 @@ public sealed class AppSettings
     /// <summary>Start hidden in the tray instead of showing the window.</summary>
     public bool StartMinimized { get; set; }
 
+    /// <summary>Emit per-device <c>If</c> blocks (so each device keeps its own tuning).</summary>
+    public bool ScopePerDevice { get; set; } = true;
+
     private static string PathFor(string? directory)
         => System.IO.Path.Combine(directory ?? RemoteMap.Dir(), "settings.json");
 

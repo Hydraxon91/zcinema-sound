@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text.Json;
 
 namespace ZCinemaSound.Core;
 
@@ -34,17 +33,28 @@ public static class ActionRunner
 
         switch (verb)
         {
-            case "preset": { var p = EqualizerApo.LoadProfile(); Presets.Apply(p, val); EqualizerApo.SaveProfile(p); break; }
-            case "custom": ApplyCustom(val); break;
+            case "preset": MutateActive(p => Presets.Apply(p, val)); break;
+            case "custom": MutateActive(p => ApplyCustomTo(p, val)); break;
             case "gui": host.ShowApp(); break;
             case "bypass": ToggleBypass(); break;
-            case "sound": AdjustSound(val); break;
+            case "sound": MutateActive(p => AdjustSoundTo(p, val)); break;
             case "media": SendMedia(val); break;
             case "app":
             case "url": StartProcess(val); break;
             case "script": RunScript(val); break;
             case "keys": if (val.Length > 0) host.SendKeys(val); break;
         }
+    }
+
+    /// <summary>Load the active device's profile, mutate it, and persist it (scoping-aware).</summary>
+    private static void MutateActive(Action<ZCinemaProfile> mutate)
+    {
+        string guid = AppSettings.Load().ActiveDeviceGuid;
+        var store = new DeviceProfiles();
+        var p = (!string.IsNullOrEmpty(guid) ? store.Load(guid) : null) ?? new ZCinemaProfile();
+        mutate(p);
+        if (!string.IsNullOrEmpty(guid)) ProfileStore.Save(guid, p);
+        else EqualizerApo.SaveProfile(p);
     }
 
     private static void ToggleBypass()
@@ -67,9 +77,8 @@ public static class ActionRunner
         }
     }
 
-    private static void AdjustSound(string val)
+    private static void AdjustSoundTo(ZCinemaProfile p, string val)
     {
-        var p = EqualizerApo.LoadProfile();
         switch (val)
         {
             case "dialogue+": p.DialogGain = Math.Min(9, p.DialogGain + 1); break;
@@ -80,7 +89,6 @@ public static class ActionRunner
             case "ceiling-": p.PreampDb = Math.Max(-60, p.PreampDb - 1); break;
             default: return;
         }
-        EqualizerApo.SaveProfile(p);
     }
 
     private static void SendMedia(string val)
@@ -90,24 +98,13 @@ public static class ActionRunner
         keybd_event(vk, 0, 2, UIntPtr.Zero);
     }
 
-    private static void ApplyCustom(string slot)
+    private static void ApplyCustomTo(ZCinemaProfile p, string slot)
     {
-        if (!int.TryParse(slot, out _)) return;
-        var path = RemoteMap.PresetsPath();
-        if (!File.Exists(path)) return;
-        try
-        {
-            var json = File.ReadAllText(path);
-            var all = JsonSerializer.Deserialize<Dictionary<string, CustomPreset>>(json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-            if (all is null || !all.TryGetValue(slot, out var c)) return;
-            var p = EqualizerApo.LoadProfile();
-            p.PreampDb = c.Preamp; p.BassGain = c.Bass; p.SubGain = Math.Round(c.Bass * 0.6, 1);
-            p.TrebleGain = c.Treble; p.DialogGain = c.Dialog; p.Width = c.Width / 100.0;
-            p.EqGains = c.Eq;
-            EqualizerApo.SaveProfile(p);
-        }
-        catch { /* ignore malformed presets */ }
+        var slots = RemoteMap.ReadCustomSlots();
+        if (!slots.TryGetValue(slot, out var c)) return;
+        p.PreampDb = c.Preamp; p.BassGain = c.Bass; p.SubGain = Math.Round(c.Bass * 0.6, 1);
+        p.TrebleGain = c.Treble; p.DialogGain = c.Dialog; p.Width = c.Width / 100.0;
+        p.EqGains = c.Eq;
     }
 
     private static void StartProcess(string target)

@@ -76,4 +76,44 @@ public static class EqualizerApo
 
     public static void SaveProfile(ZCinemaProfile profile)
         => WriteAscii(ProfilePath(), profile.Generate());
+
+    /// <summary>
+    /// Generate a multi-device config: an <c>If</c>/<c>ElseIf</c> block per configured
+    /// device (matched by endpoint GUID via <c>deviceGuid</c>), with an <c>Else</c>
+    /// fallback to the active device's profile — so audio can never go silent, even if
+    /// the GUID never matches (in which case it behaves like the single-profile config).
+    /// </summary>
+    public static string GenerateMulti(string fallbackGuid, IReadOnlyDictionary<string, ZCinemaProfile> devices, ZCinemaProfile fallback)
+    {
+        var others = devices
+            .Where(kv => !string.Equals(kv.Key, fallbackGuid, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var sb = new StringBuilder();
+        sb.Append("# ZCinema Sound - per-device profiles\r\n");
+        sb.Append("# Each block applies only to the matching audio device.\r\n\r\n");
+
+        bool first = true;
+        foreach (var kv in others)
+        {
+            sb.Append(first ? "If: " : "ElseIf: ")
+              .Append("sizeof(regexSearch(\"").Append(NormalizeGuid(kv.Key))
+              .Append("\", tolower(deviceGuid))) > 0\r\n");
+            first = false;
+            sb.Append(kv.Value.Generate());
+            sb.Append("\r\n");
+        }
+
+        if (!first) sb.Append("Else:\r\n");
+        sb.Append(fallback.Generate());
+        if (!first) sb.Append("EndIf:\r\n");
+        return sb.ToString();
+    }
+
+    public static void SaveMultiProfile(string fallbackGuid, IReadOnlyDictionary<string, ZCinemaProfile> devices, ZCinemaProfile fallback)
+        => WriteAscii(ProfilePath(), GenerateMulti(fallbackGuid, devices, fallback));
+
+    /// <summary>Bare, lowercase GUID used as the regex pattern for device matching.</summary>
+    private static string NormalizeGuid(string guid) => guid.Trim('{', '}').ToLowerInvariant();
 }

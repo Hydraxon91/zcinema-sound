@@ -112,7 +112,7 @@ public sealed class MainForm : Form, IActionHost
             if (!_exiting) { e.Cancel = true; HideToTray(); }
         };
 
-        LoadProfileIntoUi();
+        ApplyToUi(new ZCinemaProfile());
         _volume = AudioEndpointVolume.Open();
         PopulateDevices();
         SyncVolumeFromDevice();
@@ -667,6 +667,9 @@ public sealed class MainForm : Form, IActionHost
         var miMin = new ToolStripMenuItem("Start minimized") { CheckOnClick = true, Checked = _settings.StartMinimized };
         miMin.CheckedChanged += (_, _) => { _settings.StartMinimized = miMin.Checked; _settings.Save(); };
         menu.Items.Add(miMin);
+        var miScope = new ToolStripMenuItem("Per-device EQ scoping") { CheckOnClick = true, Checked = _settings.ScopePerDevice };
+        miScope.CheckedChanged += (_, _) => { _settings.ScopePerDevice = miScope.Checked; _settings.Save(); Persist(FromUi()); };
+        menu.Items.Add(miScope);
         menu.Items.Add(new ToolStripSeparator());
 
         menu.Items.Add("Back up settings...", null, (_, _) => ExportBackup());
@@ -781,8 +784,6 @@ public sealed class MainForm : Form, IActionHost
         static void Set(LedSlider t, string fmt) { if (t.Tag is Label l) l.Text = string.Format(fmt, t.Value); }
     }
 
-    private void LoadProfileIntoUi() => ApplyToUi(EqualizerApo.LoadProfile());
-
     private void ApplyToUi(ZCinemaProfile p)
     {
         _loading = true;
@@ -802,7 +803,7 @@ public sealed class MainForm : Form, IActionHost
 
     private ZCinemaProfile FromUi()
     {
-        var p = EqualizerApo.LoadProfile();
+        var p = new ZCinemaProfile();
         p.PreampDb = _preamp.Value;
         p.BassGain = _bass.Value;
         p.SubGain = Math.Round(_bass.Value * 0.6, 1);
@@ -826,9 +827,9 @@ public sealed class MainForm : Form, IActionHost
     /// <summary>Write the profile to Equalizer APO and remember it for the active device.</summary>
     private void Persist(ZCinemaProfile p)
     {
-        EqualizerApo.SaveProfile(p);
-        if (_volume is not null && _volume.EndpointGuid.Length > 0)
-            _deviceProfiles.Save(_volume.EndpointGuid, p);
+        var guid = _volume?.EndpointGuid ?? "";
+        if (guid.Length > 0) ProfileStore.Save(guid, p);
+        else EqualizerApo.SaveProfile(p);
     }
 
     // ------------------------------------------------------ device selection
@@ -868,19 +869,15 @@ public sealed class MainForm : Form, IActionHost
         var guid = _volume?.EndpointGuid ?? "";
         if (guid.Length == 0) return;
         var stored = _deviceProfiles.Load(guid);
-        if (stored is not null)
+        if (stored is null)
         {
-            EqualizerApo.SaveProfile(stored);
-            ApplyToUi(stored);
-            _status.Text = $"Profile for {_volume!.Name}";
+            // first time we see this device: adopt the current profile as its own
+            stored = EqualizerApo.LoadProfile();
+            _deviceProfiles.Save(guid, stored);
         }
-        else
-        {
-            var current = EqualizerApo.LoadProfile();
-            _deviceProfiles.Save(guid, current);
-            ApplyToUi(current);
-            _status.Text = $"New per-device profile for {_volume!.Name}";
-        }
+        ProfileStore.Save(guid, stored);   // (re)generate the Equalizer APO config
+        ApplyToUi(stored);
+        _status.Text = $"Profile for {_volume!.Name}";
         UpdateAttachmentStatus();
     }
 
@@ -921,7 +918,7 @@ public sealed class MainForm : Form, IActionHost
     {
         var guid = _volume?.EndpointGuid ?? "";
         var p = guid.Length > 0 ? _deviceProfiles.Load(guid) : null;
-        return p ?? EqualizerApo.LoadProfile();
+        return p ?? new ZCinemaProfile();
     }
 
     private void ApplyPreset(string name)

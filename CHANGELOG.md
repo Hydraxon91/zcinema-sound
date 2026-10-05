@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.2.0 — 2026-10-05
+
+- **Per-device EQ scoping (Equalizer APO):** with two or more device profiles, the
+  generated config now contains one `If`/`ElseIf` block per device (matched on the
+  endpoint GUID via `deviceGuid`), so every device gets its own tuning
+  **simultaneously** instead of fighting over one global profile.
+- An **`Else` fallback** applies the active device's profile to anything unmatched,
+  so audio can never go silent — and a single device still writes the plain profile
+  exactly as before.
+- The app is now the source of truth (device-profile store + settings); the
+  remote-action path writes through the same `ProfileStore`.
+- New tray toggle **Per-device EQ scoping** (default on) to A/B by ear.
+- Unit tests: 26 (was 22).
+
 ## v0.1.4 — 2026-10-05
 
 - **Remembers the selected device** across restarts, and **refreshes automatically**

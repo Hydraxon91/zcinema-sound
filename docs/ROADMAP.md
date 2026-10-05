@@ -7,17 +7,14 @@ working setup — it's the plan for packaging.
 > The PowerShell toolkit is **legacy/reference** — still functional, kept as the
 > regression harness until the `.exe` reaches full parity.
 >
-> **Status (v0.1.4):** shipped via GitHub Releases as `ZCinemaSound-Setup.exe`
+> **Status (v0.2.0):** shipped via GitHub Releases as `ZCinemaSound-Setup.exe`
 > (self-contained), `ZCinemaSound-Setup-lite.exe` (needs the .NET Desktop Runtime)
-> and portable `ZCinemaSound.App.exe`. Per-device profiles, a device selector,
-> remote mapping import/export, tray preset quick-switching and one-file
-> backup/restore are done — see `CHANGELOG.md`.
+> and portable `ZCinemaSound.App.exe`. Per-device profiles with **per-device EQ
+> scoping**, a device selector, remote import/export, tray preset quick-switching
+> and one-file backup/restore are done — see `CHANGELOG.md`.
 >
-> **Per-device scoping (next):** profiles are stored per output device, but Equalizer
-> APO runs a single config. EAPO 1.4.2 supports `Device:` / `If` scoping, so the
-> follow-up is to emit one scoped block per device with an `Else` fallback (so audio
-> can never go silent). That needs a persistence refactor (the remote-action path
-> also writes the profile), so it is deliberately staged.
+> **Next (Batch 6):** DPI (`PerMonitorV2`) + layout scaling pass, first-run guidance,
+> uninstall data cleanup, docs.
 
 ## 0. Done
 
