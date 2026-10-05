@@ -32,6 +32,8 @@ Download **`ZCinemaSound-Setup.exe`** from the
   needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
   (the installer checks for it). Use the regular `ZCinemaSound-Setup.exe` if you'd
   rather not install the runtime.
+- The installer asks whether to install **for all users** (admin, into Program Files)
+  or **for me only** (no admin, into `%LocalAppData%\Programs`).
 
 ### Build from source
 

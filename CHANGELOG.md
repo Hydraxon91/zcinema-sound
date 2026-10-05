@@ -12,8 +12,9 @@
   panel immediately.
 - **Bypass** is now a clear, stateful toggle in the tray and is shown in the status
   line.
-- **Per-user install:** `ZCinemaSound-Setup.exe /CURRENTUSER` installs to
-  `%LocalAppData%\Programs` with no admin prompt.
+- **Per-user install:** the installer now offers **Install for all users** vs **Install
+  for me only** in the UI (and `ZCinemaSound-Setup.exe /CURRENTUSER` still works),
+  installing to `%LocalAppData%\Programs` with no admin prompt when per-user.
 - **Legacy PowerShell toolkit moved to `legacy\`** and marked unsupported; docs updated.
 - Tests: 31.
 
