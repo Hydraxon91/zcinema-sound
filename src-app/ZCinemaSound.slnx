@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="ZCinemaSound.App/ZCinemaSound.App.csproj" />
+  <Project Path="ZCinemaSound.Core/ZCinemaSound.Core.csproj" />
+  <Project Path="ZCinemaSound.Tests/ZCinemaSound.Tests.csproj" />
+</Solution>
