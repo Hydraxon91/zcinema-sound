@@ -5,7 +5,7 @@ Scope: user
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/Hydraxon91/zcinema-sound/releases/download/v0.4.1/ZCinemaSound.App.exe
-    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+    InstallerSha256: F0D98542075216FCF484C55114E990EDCB5F30CFBFC8AC6FFC15BD7536B8CE3C
     PortableCommandAlias: zcinema-sound
 ManifestType: installer
 ManifestVersion: 1.6.0
