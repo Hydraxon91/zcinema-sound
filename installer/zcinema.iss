@@ -3,14 +3,14 @@
 ; prerequisite* (GPLv2) — it is never bundled; the installer links to its
 ; official download and aborts until it is present.
 ;
-; Build:  ISCC.exe /DAppExeDir="<publish dir>" /DVersion=0.2.0 zcinema.iss
+; Build:  ISCC.exe /DAppExeDir="<publish dir>" /DVersion=0.2.1 zcinema.iss
 ; (or use ..\installer\build-installer.ps1)
 
 #ifndef AppExeDir
   #define AppExeDir "..\src-app\ZCinemaSound.App\bin\Release\net10.0-windows\win-x64\publish"
 #endif
 #ifndef Version
-  #define Version "0.2.0"
+  #define Version "0.2.1"
 #endif
 #ifndef OutputDir
   #define OutputDir "output"
@@ -158,4 +158,17 @@ begin
     end;
   end;
 #endif
+end;
+
+function InitializeUninstall(): Boolean;
+var
+  r: Integer;
+begin
+  Result := True;
+  r := MsgBox('Also remove your ZCinema Sound settings?' + #13#10 + #13#10 +
+              'This deletes remote mappings, per-device profiles, custom slots and backups' + #13#10 +
+              'in your AppData folder. Choose No to keep them for a future reinstall.',
+              mbConfirmation, MB_YESNO);
+  if r = IDYES then
+    DelTree(ExpandConstant('{userappdata}\ZCinemaSound'), True, True, True);
 end;

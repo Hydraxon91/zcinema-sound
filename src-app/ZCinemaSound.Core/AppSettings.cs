@@ -20,6 +20,9 @@ public sealed class AppSettings
     /// <summary>Emit per-device <c>If</c> blocks (so each device keeps its own tuning).</summary>
     public bool ScopePerDevice { get; set; } = true;
 
+    /// <summary>Whether the "Equalizer APO isn't installed" prompt has been shown.</summary>
+    public bool WarnedNoApo { get; set; }
+
     private static string PathFor(string? directory)
         => System.IO.Path.Combine(directory ?? RemoteMap.Dir(), "settings.json");
 

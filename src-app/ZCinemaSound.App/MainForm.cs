@@ -125,6 +125,23 @@ public sealed class MainForm : Form, IActionHost
         _reader.ButtonPressed += OnReaderButton;
         _reader.Start();
         if (_settings.StartMinimized) BeginInvoke(new Action(HideToTray));
+
+        if (!EqualizerApo.IsInstalled() && !_settings.WarnedNoApo)
+        {
+            _settings.WarnedNoApo = true;
+            _settings.Save();
+            BeginInvoke(new Action(() =>
+            {
+                var r = MessageBox.Show(
+                    "Equalizer APO isn't installed.\n\nZCinema Sound uses it for all audio processing (GPLv2 - it isn't bundled).\n\nOpen its download page now?",
+                    "ZCinema Sound", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                if (r == DialogResult.Yes)
+                {
+                    try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://sourceforge.net/projects/equalizerapo/") { UseShellExecute = true }); }
+                    catch { }
+                }
+            }));
+        }
     }
 
     private static LedSlider Slider(int min, int max, int segments) => new()
@@ -881,10 +898,16 @@ public sealed class MainForm : Form, IActionHost
         UpdateAttachmentStatus();
     }
 
-    /// <summary>Warn (in the status line) when APO isn't attached to the selected device.</summary>
+    /// <summary>Warn (in the status line) when APO isn't installed or attached to the selected device.</summary>
     private void UpdateAttachmentStatus()
     {
         if (_volume is null) return;
+        if (!EqualizerApo.IsInstalled())
+        {
+            _status.Text = "Equalizer APO isn't installed - install it, then attach the Z Cinema in its Device Selector.";
+            _status.ForeColor = Theme.Accent;
+            return;
+        }
         if (!EqualizerApo.IsAttached(_volume.EndpointGuid))
         {
             _status.Text = $"Equalizer APO isn't attached to {_volume.Name} - open its Device Selector, then reboot.";

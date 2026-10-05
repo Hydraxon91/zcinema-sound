@@ -14,6 +14,7 @@ The current app lives in `src-app\` (`ZCinemaSound.Core` + `ZCinemaSound.App` +
 `ZCinemaSound.Tests`). It needs the [.NET 10 SDK](https://dotnet.microsoft.com/) to build.
 
 ![ZCinema Sound app](docs/images/screenshot.png)
+![ZCinema Sound — Remote tab](docs/images/screenshot-remote.png)
 
 ### Install (recommended)
 
@@ -55,6 +56,12 @@ scripts needed; install/uninstall self-elevate).
 It shares the same profile (`…\EqualizerAPO\config\ZCinema.txt`) and the same
 `%APPDATA%\ZCinemaSound\` data as the legacy scripts, and uses the same
 single-instance mutex — so **don't run both at once**.
+
+Tuning is kept **per output device**. With two or more devices configured, the app
+writes Equalizer APO one `If` block per device (matched by endpoint GUID) with an
+`Else` fallback to the active device's profile, so every device keeps its own sound
+and audio can never go silent. Prefer one global profile? Turn off **Per-device EQ
+scoping** in the tray menu.
 
 Sound profile + setup helper that makes the **Logitech Z Cinéma** USB speakers
 sound right on modern Windows (10/11) — proper volume behaviour, bass, treble

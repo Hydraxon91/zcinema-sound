@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.2.1 — 2026-10-05
+
+- **First-run guidance:** if Equalizer APO isn't installed, the status line says so
+  and a one-time prompt offers its download page.
+- **Cleaner uninstall:** the uninstaller now asks whether to also remove your
+  `%APPDATA%\ZCinemaSound` data (remote mappings, per-device profiles, custom slots,
+  backups) — choose No to keep them for a reinstall.
+- Docs: Remote-tab screenshot; per-device scoping note.
+
+**Known limitation:** the window uses a fixed pixel layout, so display scaling above
+100% can look small/blurry. A DPI (PerMonitorV2) pass is planned — it needs a
+high-DPI display to verify.
+
 ## v0.2.0 — 2026-10-05
 
 - **Per-device EQ scoping (Equalizer APO):** with two or more device profiles, the
