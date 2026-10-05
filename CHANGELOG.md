@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.5.0 (unreleased) — 2026-10-05
+## v0.4.1 — 2026-10-05
 
 - **True auto-update:** the updater finds the installer release asset, downloads it
   (with a progress window), runs it silently (`/SILENT /NORESTART`, plus
@@ -8,6 +8,11 @@
   up the temp copy. The tray gains **Install update vX…** when one is available and an
   **Install updates automatically** toggle (off by default).
 - Tests: 33.
+
+**Packaging**
+- Optional **SignPath** code signing staged in CI (gated on repo variables — inert
+  until configured); see `docs/SIGNING.md`.
+- **WinGet** publishing staged (portable package); see `winget/README.md`.
 
 ## v0.4.0 — 2026-10-05
 

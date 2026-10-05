@@ -1,0 +1,29 @@
+PackageIdentifier: Hydraxon91.ZCinemaSound
+PackageVersion: 0.4.1
+PackageLocale: en-US
+Publisher: Hydraxon91
+PublisherUrl: https://github.com/Hydraxon91
+PublisherSupportUrl: https://github.com/Hydraxon91/zcinema-sound/issues
+PackageName: ZCinema Sound
+PackageUrl: https://github.com/Hydraxon91/zcinema-sound
+License: MIT
+LicenseUrl: https://github.com/Hydraxon91/zcinema-sound/blob/main/LICENSE
+ShortDescription: Restores volume, tone and remote-button control to the Logitech Z Cinema USB speakers without a kernel driver.
+Description: |
+  ZCinema Sound is a Windows system-tray app that keeps the Logitech Z Cinema USB
+  speakers usable on current Windows: master volume and mute, bass/treble/dialogue
+  shaping, a parametric equalizer, stereo-width and per-device tuning, plus mapping
+  of the speaker remote's buttons to your own actions. It runs entirely in user space
+  (no kernel driver), so it stays safe for games and kernel-level anti-cheat.
+
+  Requires Equalizer APO (installed separately; it is not bundled) for the audio
+  processing. The portable package is self-contained and needs no .NET runtime.
+Moniker: zcinema-sound
+Tags:
+  - audio
+  - equalizer
+  - logitech
+  - tray
+ReleaseNotesUrl: https://github.com/Hydraxon91/zcinema-sound/releases/tag/v0.4.1
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

@@ -34,6 +34,9 @@ Download **`ZCinemaSound-Setup.exe`** from the
   rather not install the runtime.
 - The installer asks whether to install **for all users** (admin, into Program Files)
   or **for me only** (no admin, into `%LocalAppData%\Programs`).
+- **WinGet (portable):** `winget install Hydraxon91.ZCinemaSound` once the package is
+  published (see `winget/README.md`). Code signing is staged in CI but not enabled yet
+  (`docs/SIGNING.md`).
 
 ### Build from source
 

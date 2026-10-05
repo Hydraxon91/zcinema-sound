@@ -1,0 +1,11 @@
+PackageIdentifier: Hydraxon91.ZCinemaSound
+PackageVersion: 0.4.1
+InstallerType: portable
+Scope: user
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/Hydraxon91/zcinema-sound/releases/download/v0.4.1/ZCinemaSound.App.exe
+    InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000
+    PortableCommandAlias: zcinema-sound
+ManifestType: installer
+ManifestVersion: 1.6.0

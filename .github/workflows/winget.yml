@@ -1,0 +1,28 @@
+name: winget
+
+on:
+  release:
+    types: [released]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v0.4.1)'
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      # Publishes the PORTABLE ZCinemaSound.App.exe to the Windows Package Manager.
+      # Requires the package to already exist in microsoft/winget-pkgs (see
+      # winget/README.md for the one-time manual submission) and a classic PAT with
+      # the public_repo + workflow scopes stored as the WINGET_TOKEN secret.
+      - name: Publish to WinGet
+        if: ${{ secrets.WINGET_TOKEN != '' }}
+        uses: vedantmgoyal9/winget-releaser@main
+        with:
+          identifier: Hydraxon91.ZCinemaSound
+          installers-regex: 'ZCinemaSound\.App\.exe$'
+          release-tag: ${{ inputs.tag || github.event.release.tag_name }}
+          max-versions-to-keep: 10
+          token: ${{ secrets.WINGET_TOKEN }}

@@ -63,6 +63,41 @@ jobs:
           & $iscc "/DAppExeDir=$lite" "/DVersion=${{ steps.ver.outputs.version }}" '/DOutputBaseFilename=ZCinemaSound-Setup-lite' '/DFrameworkDependent=1' 'installer\zcinema.iss'
           if ($LASTEXITCODE -ne 0) { throw 'lite installer build failed' }
 
+      - name: Upload unsigned (for signing)
+        uses: actions/upload-artifact@v7
+        with:
+          name: unsigned
+          path: |
+            artifacts/full/ZCinemaSound.App.exe
+            installer/output/ZCinemaSound-Setup.exe
+            installer/output/ZCinemaSound-Setup-lite.exe
+
+      # Staged but inert until configured. See docs/SIGNING.md. Set the repo
+      # variable SIGNPATH_ORG_ID (and the others) + the SIGNPATH_API_TOKEN secret
+      # to activate — until then this and the next step are skipped.
+      - name: Sign with SignPath (optional)
+        if: ${{ vars.SIGNPATH_ORG_ID != '' }}
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORG_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIG_SLUG }}
+          github-artifact-name-unsigned: unsigned
+          github-artifact-name-signed: signed
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - name: Use signed files (when signed)
+        if: ${{ vars.SIGNPATH_ORG_ID != '' }}
+        shell: pwsh
+        run: |
+          if (Test-Path 'signed/ZCinemaSound.App.exe')          { Copy-Item 'signed/ZCinemaSound.App.exe'          'artifacts/full/ZCinemaSound.App.exe' -Force }
+          if (Test-Path 'signed/ZCinemaSound-Setup.exe')        { Copy-Item 'signed/ZCinemaSound-Setup.exe'        'installer/output/ZCinemaSound-Setup.exe' -Force }
+          if (Test-Path 'signed/ZCinemaSound-Setup-lite.exe')   { Copy-Item 'signed/ZCinemaSound-Setup-lite.exe'   'installer/output/ZCinemaSound-Setup-lite.exe' -Force }
+          Write-Host "Signed artifacts staged."
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
