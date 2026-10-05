@@ -1,6 +1,7 @@
 # Presets
 
-Everything here is available from the **buttons in `tools\ZCinema-GUI.ps1`**.
+Everything here is available from the app's **Sound** tab (legacy equivalent:
+`legacy\tools\ZCinema-GUI.ps1`).
 
 ## Built-in presets (each also sets the EQ)
 

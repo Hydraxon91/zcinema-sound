@@ -1,8 +1,8 @@
 # Build the ZCinema Sound installer.
-#   powershell -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 [-Version 0.3.1]
+#   powershell -ExecutionPolicy Bypass -File .\installer\build-installer.ps1 [-Version 0.4.0]
 # Requires: .NET 10 SDK and Inno Setup 6 (ISCC.exe). Does NOT bundle Equalizer APO.
 param(
-    [string]$Version = "0.3.1",
+    [string]$Version = "0.4.0",
     [string]$Configuration = "Release"
 )
 

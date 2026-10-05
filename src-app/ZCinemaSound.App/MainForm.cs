@@ -50,6 +50,8 @@ public sealed class MainForm : Form, IActionHost
     private bool _balloonShown;
     private bool _startupHandled;
     private readonly System.Windows.Forms.Timer _startup = new() { Interval = 200 };
+    private readonly ToolStripMenuItem?[] _trayCustom = new ToolStripMenuItem?[3];
+    private bool _hotkeysOn;
 
     // remote
     private readonly HidReader _reader = new();
@@ -132,6 +134,7 @@ public sealed class MainForm : Form, IActionHost
         // Realise the window handle now: we may start hidden in the tray, and the HID
         // reader / timers / BeginInvoke all need a handle even while invisible.
         _ = Handle;
+        ApplyHotkeys();
 
         _startup.Tick += (_, _) => { _startup.Stop(); StartupCheck(); };
         _startup.Start();
@@ -140,17 +143,20 @@ public sealed class MainForm : Form, IActionHost
     /// <summary>Runs once the message loop is up (after the window handle is realised).</summary>
     private void StartupCheck()
     {
-        if (EqualizerApo.IsInstalled() || _settings.WarnedNoApo) return;
-        _settings.WarnedNoApo = true;
-        _settings.Save();
-        var r = MessageBox.Show(
-            "Equalizer APO isn't installed.\n\nZCinema Sound uses it for all audio processing (GPLv2 - it isn't bundled).\n\nOpen its download page now?",
-            "ZCinema Sound", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
-        if (r == DialogResult.Yes)
+        if (!EqualizerApo.IsInstalled() && !_settings.WarnedNoApo)
         {
-            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://sourceforge.net/projects/equalizerapo/") { UseShellExecute = true }); }
-            catch { }
+            _settings.WarnedNoApo = true;
+            _settings.Save();
+            var r = MessageBox.Show(
+                "Equalizer APO isn't installed.\n\nZCinema Sound uses it for all audio processing (GPLv2 - it isn't bundled).\n\nOpen its download page now?",
+                "ZCinema Sound", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (r == DialogResult.Yes)
+            {
+                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://sourceforge.net/projects/equalizerapo/") { UseShellExecute = true }); }
+                catch { }
+            }
         }
+        if (_settings.CheckUpdates) _ = CheckForUpdates(false);
     }
 
     private static LedSlider Slider(int min, int max, int segments) => new()
@@ -387,6 +393,7 @@ public sealed class MainForm : Form, IActionHost
         p.PreampDb = dlg.PreampDb;
         Persist(p);
         ApplyToUi(p);
+        _status.ForeColor = Theme.Muted;
         _status.Text = $"Ceiling set to {dlg.PreampDb} dB";
     }
 
@@ -396,13 +403,15 @@ public sealed class MainForm : Form, IActionHost
         var slots = RemoteMap.ReadCustomSlots();
         slots[slot] = new CustomPreset(p.PreampDb, p.BassGain, p.TrebleGain, p.DialogGain, p.Width * 100.0, p.EqGains);
         RemoteMap.SaveCustomSlots(slots);
-        _status.Text = $"Saved current settings to Custom {slot}";
+        _status.ForeColor = Theme.Muted;
+        _status.Text = $"Saved current settings to {CustomSlotLabel(slot)}";
     }
 
     private void LoadCustomSlot(string slot)
     {
-        if (!ApplyCustomSlot(slot)) { _status.Text = $"Custom {slot} is empty."; return; }
-        _status.Text = $"Loaded Custom {slot}";
+        _status.ForeColor = Theme.Muted;
+        if (!ApplyCustomSlot(slot)) { _status.Text = $"{CustomSlotLabel(slot)} is empty."; return; }
+        _status.Text = $"Loaded {CustomSlotLabel(slot)}";
     }
 
     private void Row(Control parent, string name, LedSlider track, int y)
@@ -670,6 +679,11 @@ public sealed class MainForm : Form, IActionHost
             {
                 ActionRunner.Run(action, this);
                 _remoteStatus.Text = $"Remote: {name} -> {action}";
+                // reflect profile changes made outside the form (preset/custom/sound)
+                if (action.StartsWith("preset:", StringComparison.Ordinal)
+                    || action.StartsWith("custom:", StringComparison.Ordinal)
+                    || action.StartsWith("sound:", StringComparison.Ordinal))
+                    RefreshFromStore();
             }
         });
     }
@@ -699,22 +713,32 @@ public sealed class MainForm : Form, IActionHost
         foreach (var name in PresetNames)
         {
             string n = name;
-            presets.DropDownItems.Add(n, null, (_, _) => { ApplyPreset(n); _status.Text = $"Preset: {n}"; });
+            presets.DropDownItems.Add(n, null, (_, _) => { ApplyPreset(n); _status.ForeColor = Theme.Muted; _status.Text = $"Preset: {n}"; });
         }
         presets.DropDownItems.Add(new ToolStripSeparator());
         for (int i = 1; i <= 3; i++)
         {
             int slot = i;
-            presets.DropDownItems.Add("Custom " + slot, null, (_, _) =>
+            var mi = new ToolStripMenuItem("Custom " + slot);
+            mi.Click += (_, _) =>
             {
-                if (ApplyCustomSlot(slot.ToString())) _status.Text = $"Loaded Custom {slot}";
-                else _status.Text = $"Custom {slot} is empty.";
-            });
+                _status.ForeColor = Theme.Muted;
+                _status.Text = ApplyCustomSlot(slot.ToString())
+                    ? $"Loaded {CustomSlotLabel(slot.ToString())}"
+                    : $"{CustomSlotLabel(slot.ToString())} is empty.";
+            };
+            _trayCustom[i - 1] = mi;
+            presets.DropDownItems.Add(mi);
         }
         menu.Items.Add(presets);
+        menu.Items.Add("Manage custom slots...", null, (_, _) => ManageCustomSlots());
 
         menu.Items.Add("Install / update profile", null, (_, _) => RunElevated("install"));
-        menu.Items.Add("Bypass processing", null, (_, _) => ActionRunner.Run("bypass", this));
+
+        var miBypass = new ToolStripMenuItem("Bypass processing") { Checked = Bypass.IsActive };
+        miBypass.Click += (_, _) => { Bypass.Toggle(); UpdateStatus(); };
+        menu.Items.Add(miBypass);
+
         menu.Items.Add("Open Equalizer APO Device Selector", null, (_, _) =>
         {
             var ds = EqualizerApo.DeviceSelectorPath();
@@ -734,18 +758,114 @@ public sealed class MainForm : Form, IActionHost
         var miScope = new ToolStripMenuItem("Per-device EQ scoping") { CheckOnClick = true, Checked = _settings.ScopePerDevice };
         miScope.CheckedChanged += (_, _) => { _settings.ScopePerDevice = miScope.Checked; _settings.Save(); Persist(FromUi()); };
         menu.Items.Add(miScope);
+        var miHot = new ToolStripMenuItem("Global hotkeys (Ctrl+Alt+1-6)") { CheckOnClick = true, Checked = _settings.HotkeysEnabled };
+        miHot.CheckedChanged += (_, _) => { _settings.HotkeysEnabled = miHot.Checked; _settings.Save(); ApplyHotkeys(); };
+        menu.Items.Add(miHot);
         menu.Items.Add(new ToolStripSeparator());
 
         menu.Items.Add("Back up settings...", null, (_, _) => ExportBackup());
         menu.Items.Add("Restore settings...", null, (_, _) => ImportBackup());
+        menu.Items.Add("Check for updates...", null, (_, _) => _ = CheckForUpdates(true));
         menu.Items.Add("Open data folder", null, (_, _) => OpenDataFolder());
         menu.Items.Add("About", null, (_, _) => ShowAbout());
         menu.Items.Add(new ToolStripSeparator());
 
         menu.Items.Add("Uninstall", null, (_, _) => RunElevated("uninstall"));
         menu.Items.Add("Exit", null, (_, _) => ExitApp());
+
+        menu.Opening += (_, _) => miBypass.Checked = Bypass.IsActive;
         _tray.ContextMenuStrip = menu;
         _tray.DoubleClick += (_, _) => ShowApp();
+
+        RefreshPresetMenuNames();
+    }
+
+    private string CustomSlotLabel(string slot)
+        => _settings.CustomSlotNames.TryGetValue(slot, out var n) && !string.IsNullOrWhiteSpace(n)
+            ? n : "Custom " + slot;
+
+    private void RefreshPresetMenuNames()
+    {
+        for (int i = 1; i <= 3; i++)
+            if (_trayCustom[i - 1] is { } mi) mi.Text = CustomSlotLabel(i.ToString());
+    }
+
+    private void ManageCustomSlots()
+    {
+        using var dlg = new CustomSlotsDialog(_settings.CustomSlotNames, RemoteMap.ReadCustomSlots());
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+        _settings.CustomSlotNames = dlg.Names;
+        _settings.Save();
+
+        if (dlg.Cleared.Count > 0)
+        {
+            var slots = RemoteMap.ReadCustomSlots();
+            foreach (var s in dlg.Cleared) slots.Remove(s);
+            RemoteMap.SaveCustomSlots(slots);
+        }
+        RefreshPresetMenuNames();
+        _status.ForeColor = Theme.Muted;
+        _status.Text = "Custom slots updated.";
+    }
+
+    private async Task CheckForUpdates(bool userInitiated)
+    {
+        string ver = typeof(MainForm).Assembly.GetName().Version?.ToString(3) ?? "0.0.0";
+        var info = await Updater.CheckAsync(ver).ConfigureAwait(true);
+        if (IsDisposed || Disposing) return;
+
+        if (info is null)
+        {
+            if (userInitiated) Info($"You're up to date (v{ver}).");
+            return;
+        }
+        if (!userInitiated)
+        {
+            _tray.ShowBalloonTip(6000, "ZCinema Sound update", $"Version {info.Version} is available - see the tray menu.", ToolTipIcon.Info);
+            return;
+        }
+        var r = MessageBox.Show($"Version {info.Version} is available.\n\nOpen the download page?",
+            "ZCinema Sound", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+        if (r == DialogResult.Yes)
+        {
+            try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(info.Url) { UseShellExecute = true }); }
+            catch { }
+        }
+    }
+
+    // --------------------------------------------------------------- hotkeys
+    [DllImport("user32.dll")] private static extern bool RegisterHotKey(IntPtr hWnd, int id, uint mods, uint vk);
+    [DllImport("user32.dll")] private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+    private const uint MOD_ALT = 0x0001, MOD_CONTROL = 0x0002, MOD_NOREPEAT = 0x4000;
+    private const int WM_HOTKEY = 0x0312;
+
+    private void ApplyHotkeys()
+    {
+        if (!IsHandleCreated) return;
+        for (int id = 1; id <= 7; id++) UnregisterHotKey(Handle, id);
+        _hotkeysOn = _settings.HotkeysEnabled;
+        if (!_hotkeysOn) return;
+        // Ctrl+Alt+1..6 = presets, Ctrl+Alt+0 = open the panel
+        for (int i = 0; i < 6; i++) RegisterHotKey(Handle, 1 + i, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, (uint)(0x31 + i));
+        RegisterHotKey(Handle, 7, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, 0x30);
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        if (m.Msg == WM_HOTKEY)
+        {
+            int id = m.WParam.ToInt32();
+            if (id >= 1 && id <= 6)
+            {
+                ApplyPreset(PresetNames[id - 1]);
+                _status.ForeColor = Theme.Muted;
+                _status.Text = $"Preset: {PresetNames[id - 1]}";
+            }
+            else if (id == 7) ShowApp();
+            return;
+        }
+        base.WndProc(ref m);
     }
 
     private void ExportBackup()
@@ -860,7 +980,8 @@ public sealed class MainForm : Form, IActionHost
             _eq[i].Value = Clamp(_eq[i], (int)Math.Round(i < p.EqGains.Length ? p.EqGains[i] : 0));
         _loading = false;
         UpdateLabels();
-        _status.Text = "Loaded from " + EqualizerApo.ProfilePath();
+        _status.ForeColor = Theme.Muted;
+        _status.Text = _volume is not null ? $"Profile for {_volume.Name}" : "Ready.";
     }
 
     private static int Clamp(LedSlider t, int v) => Math.Min(t.Maximum, Math.Max(t.Minimum, v));
@@ -941,24 +1062,37 @@ public sealed class MainForm : Form, IActionHost
         }
         ProfileStore.Save(guid, stored);   // (re)generate the Equalizer APO config
         ApplyToUi(stored);
-        _status.Text = $"Profile for {_volume!.Name}";
-        UpdateAttachmentStatus();
+        UpdateStatus();
     }
 
-    /// <summary>Warn (in the status line) when APO isn't installed or attached to the selected device.</summary>
-    private void UpdateAttachmentStatus()
+    /// <summary>Reload the panel from the store (after an external/remote change).</summary>
+    private void RefreshFromStore()
     {
+        _presetSeg.SelectedIndex = -1;
+        ApplyToUi(CurrentDeviceProfile());
+    }
+
+    /// <summary>Show bypass / APO installation / attachment state in the status line.</summary>
+    private void UpdateStatus()
+    {
+        if (Bypass.IsActive)
+        {
+            _status.ForeColor = Theme.Accent;
+            _status.Text = "Processing is bypassed - re-enable from the tray or the remote.";
+            return;
+        }
+        _status.ForeColor = Theme.Muted;
         if (_volume is null) return;
         if (!EqualizerApo.IsInstalled())
         {
-            _status.Text = "Equalizer APO isn't installed - install it, then attach the Z Cinema in its Device Selector.";
             _status.ForeColor = Theme.Accent;
+            _status.Text = "Equalizer APO isn't installed - install it, then attach the Z Cinema in its Device Selector.";
             return;
         }
         if (!EqualizerApo.IsAttached(_volume.EndpointGuid))
         {
-            _status.Text = $"Equalizer APO isn't attached to {_volume.Name} - open its Device Selector, then reboot.";
             _status.ForeColor = Theme.Accent;
+            _status.Text = $"Equalizer APO isn't attached to {_volume.Name} - open its Device Selector, then reboot.";
         }
     }
 

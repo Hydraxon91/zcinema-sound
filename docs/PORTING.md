@@ -1,5 +1,8 @@
 # Porting to the native app — parity spec
 
+> **Note:** this spec describes the completed port; the app now lives in
+> `src-app\` and the PowerShell reference under `legacy\`.
+
 The C# rewrite should be a **port** of the tested PowerShell behaviour, not a
 fresh design. Everything here was learned the hard way; preserve it.
 

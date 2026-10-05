@@ -23,6 +23,15 @@ public sealed class AppSettings
     /// <summary>Whether the "Equalizer APO isn't installed" prompt has been shown.</summary>
     public bool WarnedNoApo { get; set; }
 
+    /// <summary>Friendly names for the custom slots (key "1".."3"); empty = unnamed.</summary>
+    public Dictionary<string, string> CustomSlotNames { get; set; } = new();
+
+    /// <summary>Ctrl+Alt+1..6 map to the built-in presets (and Ctrl+Alt+0 opens the panel).</summary>
+    public bool HotkeysEnabled { get; set; }
+
+    /// <summary>Check GitHub Releases for a newer version on launch.</summary>
+    public bool CheckUpdates { get; set; } = true;
+
     private static string PathFor(string? directory)
         => System.IO.Path.Combine(directory ?? RemoteMap.Dir(), "settings.json");
 

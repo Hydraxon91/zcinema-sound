@@ -432,7 +432,7 @@ $remoteTimer.Start()
 
 # ---- tray icon, close-to-tray, exit ----------------------------------------
 $appIcon = $null
-$iconPath = Join-Path $repoRoot "assets\ZCinemaSound.ico"
+$iconPath = Join-Path $repoRoot "..\assets\ZCinemaSound.ico"
 if (Test-Path $iconPath) { try { $appIcon = New-Object System.Drawing.Icon($iconPath) } catch { $appIcon = $null } }
 if (-not $appIcon) { $appIcon = [System.Drawing.SystemIcons]::Application }   # fallback when no custom .ico
 $form.Icon = $appIcon

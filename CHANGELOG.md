@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.4.0 (unreleased) — 2026-10-05
+
+- **Global hotkeys:** `Ctrl+Alt+1..6` apply the presets and `Ctrl+Alt+0` opens the
+  panel (tray toggle, off by default).
+- **Custom slot management:** rename or clear the three slots
+  (tray → *Manage custom slots…*); names show in the tray **Presets** menu.
+- **Update check:** the app checks GitHub Releases on launch (tray balloon) and the
+  tray menu has *Check for updates…*.
+- **Live panel refresh:** remote preset / custom / sound actions now update the open
+  panel immediately.
+- **Bypass** is now a clear, stateful toggle in the tray and is shown in the status
+  line.
+- **Per-user install:** `ZCinemaSound-Setup.exe /CURRENTUSER` installs to
+  `%LocalAppData%\Programs` with no admin prompt.
+- **Legacy PowerShell toolkit moved to `legacy\`** and marked unsupported; docs updated.
+- Tests: 31.
+
 ## v0.3.1 — 2026-10-05
 
 - **Starts in the tray by default.** The control panel no longer pops up in the

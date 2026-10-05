@@ -92,7 +92,7 @@ kernel-level anti-cheat (EAC/BattlEye/Vanguard).
 | EQ | Parametric bands (edit text or use the Peace GUI) |
 | TruSurround-ish width | Stereo crossfeed (`Copy:` lines) |
 | Dialogue clarity | ~3 kHz presence boost |
-| Live GUI | `tools\ZCinema-GUI.ps1` — **Sound** tab (Bass, Treble, Dialogue, Width, ceiling + 8-band EQ) and **Remote** tab (map remote buttons) |
+| Live GUI | The app's **Sound** tab (Bass, Treble, Dialogue, Width, ceiling + 8-band EQ); legacy equivalent: `legacy\tools\ZCinema-GUI.ps1` |
 | Tray app | The GUI **hosts the remote bridge** and lives in the notification tray: closing hides to tray, double-click/Open restores it, **Exit** quits. Optional **Start with Windows** (tray menu). |
 | Presets | Flat / Music / Movies / Night / Vocal / V-Shape (with EQ), plus 3 savable Custom slots |
 
@@ -122,7 +122,7 @@ Straight about the limits:
   driver-level hooks or vendor control-panel integration; nothing is test-signed.
 - **Remote extras aren't implemented yet.** Media keys work inbox; the vendor HID
   collection (`FFBC:0088`) is unused so far. A user-mode remote bridge is planned
-  — see `tools\Remote-Probe.ps1` and `docs\ROADMAP.md`.
+  — see `legacy\tools\Remote-Probe.ps1` and `docs\ROADMAP.md`.
 - **Not a signed app.** It ships as an unsigned single-file `.exe` (once
   packaged) or PowerShell + Equalizer APO today; SmartScreen may warn on first run.
 - **Anti-cheat caveat.** Equalizer APO is user-mode and widely used with games,
@@ -137,71 +137,31 @@ Straight about the limits:
   to keep this repo free of third-party binaries)
 - The Z Cinéma connected
 
-## Easiest start: double-click `ZCinema.bat`
+## Legacy PowerShell toolkit (unsupported)
 
-The repo root has a small menu that runs everything (self-elevating where
-needed):
+The native app above is **the product**. The original PowerShell toolkit is kept
+only as a reference/regression harness and now lives under **`legacy\`**
+(`legacy\ZCinema.bat`, `legacy\launchers\`, `legacy\src\`, `legacy\tools\`,
+`legacy\config\`, `legacy\presets\`). It is **not maintained**, and it shares the
+same profile and single-instance mutex as the app — **don't run both at once**.
+See `legacy\README.md`.
 
-```
- 1) Open control panel (tray app)
- 2) Install / update profile        (admin)
- 3) Calibrate volume ceiling
- 4) Re-enable profile               (admin)
- 5) Bypass - disable all processing (admin)
- 6) Uninstall                       (admin)
- 7) Open Equalizer APO config folder
- 8) Get Equalizer APO log           (admin)
- 9) Probe remote buttons            (admin)
-10) Remote bridge (buttons to presets)
-```
+The app's control panel is a **tray app** that also runs the remote bridge, so
+your mapped remote buttons work while it's open. It starts in the tray — open it
+from the tray icon (or with the **Ctrl+Alt+0** hotkey). The tray menu has a
+**Presets** submenu (quick switching), **Manage custom slots…**, **Bypass
+processing**, **Show window on start**, **Global hotkeys**, **Back up / Restore
+settings…**, **Check for updates…** and more.
 
-`launchers\` has the same actions as individual `.bat` files, handy for desktop
-shortcuts. A proper one-file `.exe` is planned — see `docs\ROADMAP.md`.
+## Install (legacy PowerShell only)
 
-The control panel (option 1) is a **tray app**: it also runs the remote bridge,
-so your mapped remote buttons work while it's open. Closing the window keeps it
-in the tray; use **Exit** (tray menu or the Remote tab) to quit, and
-**Start with Windows** in the tray menu to keep mappings active at login. The tray
-menu also has a **Presets** submenu (quick switching), **Start minimized**, and
-**Back up / Restore settings…** (one JSON file for everything).
-
-## Install
-
-1. Install Equalizer APO, run its **DeviceSelector** (older builds: Configurator), tick
-   **Speakers (Z Cinéma)**, then reboot.
-2. In an **Administrator** PowerShell, from the repo folder:
-
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\src\Install-ZCinema.ps1
-   ```
-
-   It detects your Z Cinéma endpoint, copies `config\ZCinema.txt` into the
-   Equalizer APO config folder, and points `config.txt` at it.
-
-   Your previous `config.txt` is backed up beside it as
-   `config.txt.bak-<timestamp>`. By default `config.txt` is replaced with a
-   clean include (the Equalizer APO default config adds its own `Preamp:` and a
-   demo bass boost, which would otherwise **sum** with this profile). Add
-   `-Merge` to keep your existing config instead — existing `Preamp:` lines are
-   neutralized because Equalizer APO adds them together.
-
-3. Optional — set the volume ceiling by measurement instead of by ear:
-
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\tools\Calibrate-Ceiling.ps1
-   ```
-
-4. Tune live with the GUI (no admin needed after step 2):
-
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File .\tools\ZCinema-GUI.ps1
-   ```
-
-   Sliders for **Bass**, **Treble**, **Dialogue**, **Width** and the volume
-   **Ceiling**, plus an **8-band graphic EQ** and Music/Movies/Night presets.
-   Equalizer APO hot-reloads the profile, so changes are heard immediately.
-   Prefer text? Edit `C:\Program Files\EqualizerAPO\config\ZCinema.txt`, or use
-   the [Peace GUI](https://sourceforge.net/projects/peace-equalizer-apo-extension/).
+You don't need this if you used the installer above. From `legacy\`:
+`legacy\src\Install-ZCinema.ps1` (admin) copies `legacy\config\ZCinema.txt` into the
+Equalizer APO config folder and points `config.txt` at it. The old GUI is
+`legacy\tools\ZCinema-GUI.ps1`, calibration is
+`legacy\tools\Calibrate-Ceiling.ps1`, and removal is
+`legacy\src\Uninstall-ZCinema.ps1`. Your previous `config.txt` is backed up beside
+it as `config.txt.bak-<timestamp>`.
 
 ## Volume, explained
 
@@ -213,37 +173,32 @@ Do **not** use a custom volume curve — it desyncs the Windows UI. Instead:
   comfortable maximum**. If the speakers "max out" at ~40 %, a preamp around
   −8 to −13 dB makes the whole slider usable again.
 
-`Calibrate-Ceiling.ps1` measures the endpoint's real dB taper and tells you the
-exact preamp to paste in.
+The app's **Calibrate ceiling** button (or the legacy
+`legacy\tools\Calibrate-Ceiling.ps1`) measures the endpoint's real dB taper and
+tells you the exact preamp to use.
 
 ## Uninstall
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\src\Uninstall-ZCinema.ps1
-```
-
-Removes the include line and the profile (keeps a backup of `config.txt`).
+Use the app's tray menu → **Uninstall** (or Windows *Apps & features*). To remove
+the legacy PowerShell wiring instead, run `legacy\src\Uninstall-ZCinema.ps1`
+(keeps a backup of `config.txt`).
 
 ## Layout
 
 ```
-ZCinema.bat                       menu launcher (double-click)
-launchers/                        per-action .bat files (for shortcuts)
+src-app/                          the product (C#/.NET 10)
+  ZCinemaSound.Core/              profile model, presets, per-device store, HID decode, updater
+  ZCinemaSound.App/               WinForms tray app (Sound + Remote tabs)
+  ZCinemaSound.Tests/             xUnit tests
 assets/    ZCinemaSound.ico/.png  app + README artwork (8-size icon pack)
-config/    ZCinema.txt            main profile (preamp ceiling + bass/treble/EQ)
-presets/   *-addon.txt            optional extra filters (music / movies / night)
-src/       Install / Uninstall    setup scripts
-src/       Bypass-ZCinema.ps1     panic button: disable processing, restore audio
-src/lib/   ZCinema.Common.psm1    shared helpers (profile parse/generate)
-src/lib/   ZCinema.Remote.psm1    remote HID reader + action library
-tools/     ZCinema-GUI.ps1        tray app: Sound + Remote tabs (hosts the bridge)
-tools/     Remote-Probe.ps1       remote HID sniffer/decoder
-tools/     Remote-Bridge.ps1      headless remote bridge (stands down if app runs)
-tools/     Calibrate-Ceiling.ps1  measures the volume taper -> suggests Preamp
-tools/     Get-EqualizerApoLog.ps1 fetch Equalizer APO's log (admin)
-tools/lib/ ZCinemaAudio.cs        Core Audio interop used by the calibration tool
+installer/ zcinema.iss            Inno Setup script (+ build-installer.ps1)
 docs/      ANTI-CHEAT, TROUBLESHOOTING, PRESETS, REMOTE-CODES, PORTING, ROADMAP
+legacy/    PowerShell/.bat toolkit (unsupported reference) — see legacy/README.md
 ```
+
+The Equalizer APO profile the app writes lives at
+`…\EqualizerAPO\config\ZCinema.txt`; your data (device profiles, remote mappings,
+custom slots, settings, backups) lives in `%APPDATA%\ZCinemaSound`.
 
 ## Icon
 

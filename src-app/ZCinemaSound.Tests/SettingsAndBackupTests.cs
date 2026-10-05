@@ -19,10 +19,21 @@ public class AppSettingsTests
         var dir = TempDir();
         try
         {
-            new AppSettings { ActiveDeviceGuid = "{abc}", ShowOnStart = true }.Save(dir);
+            new AppSettings
+            {
+                ActiveDeviceGuid = "{abc}",
+                ShowOnStart = true,
+                HotkeysEnabled = true,
+                CheckUpdates = false,
+                CustomSlotNames = new() { ["1"] = "Movies" },
+            }.Save(dir);
+
             var back = AppSettings.Load(dir);
             Assert.Equal("{abc}", back.ActiveDeviceGuid);
             Assert.True(back.ShowOnStart);
+            Assert.True(back.HotkeysEnabled);
+            Assert.False(back.CheckUpdates);
+            Assert.Equal("Movies", back.CustomSlotNames["1"]);
         }
         finally { Directory.Delete(dir, true); }
     }

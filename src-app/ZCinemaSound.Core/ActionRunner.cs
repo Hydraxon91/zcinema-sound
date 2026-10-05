@@ -36,7 +36,7 @@ public static class ActionRunner
             case "preset": MutateActive(p => Presets.Apply(p, val)); break;
             case "custom": MutateActive(p => ApplyCustomTo(p, val)); break;
             case "gui": host.ShowApp(); break;
-            case "bypass": ToggleBypass(); break;
+            case "bypass": Bypass.Toggle(); break;
             case "sound": MutateActive(p => AdjustSoundTo(p, val)); break;
             case "media": SendMedia(val); break;
             case "app":
@@ -55,26 +55,6 @@ public static class ActionRunner
         mutate(p);
         if (!string.IsNullOrEmpty(guid)) ProfileStore.Save(guid, p);
         else EqualizerApo.SaveProfile(p);
-    }
-
-    private static void ToggleBypass()
-    {
-        var dir = RemoteMap.Dir();
-        Directory.CreateDirectory(dir);
-        var flag = Path.Combine(dir, "bypassed.flag");
-        var save = Path.Combine(dir, "last-profile.txt");
-        var profile = EqualizerApo.ProfilePath();
-        if (File.Exists(flag))
-        {
-            if (File.Exists(save)) File.Copy(save, profile, true);
-            File.Delete(flag);
-        }
-        else
-        {
-            if (File.Exists(profile)) File.Copy(profile, save, true);
-            EqualizerApo.WriteAscii(profile, "# ZCinema Sound bypassed (remote)\r\n");
-            File.WriteAllText(flag, "");
-        }
     }
 
     private static void AdjustSoundTo(ZCinemaProfile p, string val)

@@ -1,5 +1,8 @@
 # Anti-cheat and DRM notes
 
+> **Note:** the PowerShell toolkit referenced below now lives under `legacy\`
+> (see `legacy\README.md`); the native app is in `src-app\`.
+
 Short version: **this project is designed to be safe for kernel-level anti-cheat
 and DRM**, because it installs no kernel driver and does not enable test-signing.
 

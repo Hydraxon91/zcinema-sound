@@ -1,6 +1,6 @@
 # Z Cinema remote — HID protocol & button map
 
-Reverse-engineered from `tools\Remote-Probe.ps1` captures on this machine.
+Reverse-engineered from `legacy\tools\Remote-Probe.ps1` captures on this machine.
 No driver involved: these are plain HID input reports read in user mode.
 
 ## Collections (`USB\VID_046D&PID_0A0F&MI_02`)

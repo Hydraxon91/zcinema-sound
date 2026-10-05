@@ -1,5 +1,8 @@
 # Troubleshooting
 
+> **Note:** the PowerShell toolkit referenced below now lives under `legacy\`
+> (see `legacy\README.md`); the native app is in `src-app\`.
+
 ## Nothing changes when I edit the profile
 - Equalizer APO has to be attached to **Speakers (Z Cinema)**. Run
   `C:\Program Files\EqualizerAPO\DeviceSelector.exe (or Configurator.exe on older builds)`, tick the device, reboot.
