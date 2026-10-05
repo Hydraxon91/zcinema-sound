@@ -1,5 +1,7 @@
 # ZCinema Sound
 
+<p align="center"><img src="assets/ZCinemaSound.png" width="112" alt="ZCinema Sound icon"></p>
+
 Sound profile + setup helper that makes the **Logitech Z Cinéma** USB speakers
 sound right on modern Windows (10/11) — proper volume behaviour, bass, treble
 and EQ — **without any kernel driver and without test-signing**.
@@ -80,14 +82,16 @@ The repo root has a small menu that runs everything (self-elevating where
 needed):
 
 ```
-1) Open control panel (GUI)
-2) Install / update profile        (admin)
-3) Calibrate volume ceiling
-4) Re-enable profile               (admin)
-5) Bypass - disable all processing (admin)
-6) Uninstall                       (admin)
-7) Open Equalizer APO config folder
-8) Get Equalizer APO log           (admin)
+ 1) Open control panel (tray app)
+ 2) Install / update profile        (admin)
+ 3) Calibrate volume ceiling
+ 4) Re-enable profile               (admin)
+ 5) Bypass - disable all processing (admin)
+ 6) Uninstall                       (admin)
+ 7) Open Equalizer APO config folder
+ 8) Get Equalizer APO log           (admin)
+ 9) Probe remote buttons            (admin)
+10) Remote bridge (buttons to presets)
 ```
 
 `launchers\` has the same actions as individual `.bat` files, handy for desktop
@@ -162,17 +166,30 @@ Removes the include line and the profile (keeps a backup of `config.txt`).
 ```
 ZCinema.bat                       menu launcher (double-click)
 launchers/                        per-action .bat files (for shortcuts)
+assets/    ZCinemaSound.ico/.png  app + README artwork (8-size icon pack)
 config/    ZCinema.txt            main profile (preamp ceiling + bass/treble/EQ)
 presets/   *-addon.txt            optional extra filters (music / movies / night)
 src/       Install / Uninstall    setup scripts
 src/       Bypass-ZCinema.ps1     panic button: disable processing, restore audio
 src/lib/   ZCinema.Common.psm1    shared helpers (profile parse/generate)
-tools/     ZCinema-GUI.ps1        sliders + graphic EQ for the profile
+src/lib/   ZCinema.Remote.psm1    remote HID reader + action library
+tools/     ZCinema-GUI.ps1        tray app: Sound + Remote tabs (hosts the bridge)
+tools/     Remote-Probe.ps1       remote HID sniffer/decoder
+tools/     Remote-Bridge.ps1      headless remote bridge (stands down if app runs)
 tools/     Calibrate-Ceiling.ps1  measures the volume taper -> suggests Preamp
 tools/     Get-EqualizerApoLog.ps1 fetch Equalizer APO's log (admin)
 tools/lib/ ZCinemaAudio.cs        Core Audio interop used by the calibration tool
-docs/      ANTI-CHEAT, TROUBLESHOOTING, PRESETS, ROADMAP
+docs/      ANTI-CHEAT, TROUBLESHOOTING, PRESETS, REMOTE-CODES, PORTING, ROADMAP
 ```
+
+## Icon
+
+<img src="assets/ZCinemaSound.png" width="48" alt="icon">
+
+Palette: `#010001` (major), `#D9872C` / `#AE4906` (accents), `#E1E0E1` (edge),
+`#FAFBCA` (very minor). `assets\ZCinemaSound.ico` is an 8-size pack
+(16/24/32/48/64/96/128/256) used for the window and tray icon, with a system-icon
+fallback if it's missing.
 
 ## Credits / legal
 
