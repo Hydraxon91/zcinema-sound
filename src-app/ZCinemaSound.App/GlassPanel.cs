@@ -39,7 +39,7 @@ public sealed class GlassPanel : Panel
         {
             float s = Theme.Scale(this);
             using var brush = new SolidBrush(Theme.Accent);
-            using var font = Theme.ScaleFont(Theme.SectionFont, this);
+            var font = Theme.ScaledFont(Theme.SectionFont, this);
             e.Graphics.DrawString(Caption.ToUpperInvariant(), font, brush, 14 * s, 9 * s);
         }
     }

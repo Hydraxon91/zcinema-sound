@@ -30,9 +30,25 @@ public static class Theme
     /// <summary>DPI factor (1.0 at 96 DPI).</summary>
     public static float Scale(Control c) => c.DeviceDpi / 96f;
 
-    /// <summary>A DPI-scaled copy of a theme font (always a new instance, safe to dispose).</summary>
-    public static Font ScaleFont(Font f, Control c)
-        => new(f.FontFamily, f.Size * Scale(c), f.Style, GraphicsUnit.Point);
+    private static readonly Dictionary<(Font Base, int Dpi), Font> ScaledFonts = new();
+
+    /// <summary>
+    /// A DPI-scaled theme font: the base font at 96 DPI, else a cached scaled instance.
+    /// Custom-painted controls must call this (not allocate) and must NOT dispose the result.
+    /// </summary>
+    public static Font ScaledFont(Font f, Control c)
+    {
+        int dpi = c.DeviceDpi;
+        if (dpi == 96) return f;
+        var key = (f, dpi);
+        lock (ScaledFonts)
+        {
+            if (ScaledFonts.TryGetValue(key, out var cached)) return cached;
+            var scaled = new Font(f.FontFamily, f.Size * dpi / 96f, f.Style, GraphicsUnit.Point);
+            ScaledFonts[key] = scaled;
+            return scaled;
+        }
+    }
 
     public static GraphicsPath RoundedRect(RectangleF r, float radius)
     {

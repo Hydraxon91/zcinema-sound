@@ -62,7 +62,7 @@ public sealed class SegmentedControl : Control
         g.Clear(BackColor);
         using var bg = new SolidBrush(BackColor);
         g.FillRectangle(bg, ClientRectangle);
-        using var font = Theme.ScaleFont(Theme.PillFont, this);
+        var font = Theme.ScaledFont(Theme.PillFont, this);
         for (int i = 0; i < _items.Length; i++)
         {
             var rect = ItemRect(i);

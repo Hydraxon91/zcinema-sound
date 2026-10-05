@@ -341,10 +341,15 @@ public sealed class MainForm : Form, IActionHost
             _volSlider.Value = v;
             _volSyncing = false;
         }
-        lbl.Text = _volSlider.Value + " %";
-        _muting = true;
-        _chkMute.Checked = _volume.GetMute();
-        _muting = false;
+        string text = _volSlider.Value + " %";
+        if (lbl.Text != text) lbl.Text = text;
+        bool mute = _volume.GetMute();
+        if (_chkMute.Checked != mute)
+        {
+            _muting = true;
+            _chkMute.Checked = mute;
+            _muting = false;
+        }
     }
 
     private void Calibrate()
