@@ -50,8 +50,9 @@ public sealed class SegmentedControl : Control
     private Rectangle ItemRect(int i)
     {
         if (_items.Length == 0) return Rectangle.Empty;
+        int inset = (int)Math.Round(3 * Theme.Scale(this));
         int w = Width / _items.Length;
-        return new Rectangle(i * w + 3, 3, w - 6, Height - 6);
+        return new Rectangle(i * w + inset, inset, w - 2 * inset, Height - 2 * inset);
     }
 
     protected override void OnPaint(PaintEventArgs e)
@@ -61,18 +62,19 @@ public sealed class SegmentedControl : Control
         g.Clear(BackColor);
         using var bg = new SolidBrush(BackColor);
         g.FillRectangle(bg, ClientRectangle);
+        using var font = Theme.ScaleFont(Theme.PillFont, this);
         for (int i = 0; i < _items.Length; i++)
         {
             var rect = ItemRect(i);
             bool active = i == _selected;
             bool hover = i == _hover && !active;
-            using var path = Theme.RoundedRect(rect, (Height - 6) / 2f);
+            using var path = Theme.RoundedRect(rect, rect.Height / 2f);
             Color fill = active ? Theme.AccentDark
                        : hover ? Color.FromArgb(0x33, Theme.Accent)
                        : Color.FromArgb(0x16, 0x11, 0x0B);
             using (var b = new SolidBrush(fill)) g.FillPath(b, path);
             using (var pen = new Pen(Color.FromArgb(active ? 200 : 90, Theme.Accent), 1f)) g.DrawPath(pen, path);
-            TextRenderer.DrawText(g, _items[i], Theme.PillFont, rect,
+            TextRenderer.DrawText(g, _items[i], font, rect,
                 active ? Theme.Minor : Theme.Accent,
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
         }

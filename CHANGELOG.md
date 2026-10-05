@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.0 (preview) — 2026-10-05
+
+- **High-DPI support:** the app is now `PerMonitorV2`-aware and scales its layout,
+  fonts and custom-drawn controls (`LedSlider`, `GlassPanel`, `SegmentedControl`,
+  `ThemedDropDown`) by the monitor DPI, so it grows proportionally and stays crisp
+  above 100% scaling. At 100% it is pixel-identical to before.
+- Pre-release, for verification at 125/150/175% scaling.
+
 ## v0.2.1 — 2026-10-05
 
 - **First-run guidance:** if Equalizer APO isn't installed, the status line says so

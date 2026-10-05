@@ -76,6 +76,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
+          prerelease: ${{ contains(github.ref_name, '-') }}
           files: |
             artifacts/full/ZCinemaSound.App.exe
             installer/output/ZCinemaSound-Setup.exe

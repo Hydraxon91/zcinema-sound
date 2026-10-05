@@ -23,8 +23,9 @@ public sealed class GlassPanel : Panel
     {
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
+        float s = Theme.Scale(this);
         var r = new RectangleF(0.5f, 0.5f, Width - 1f, Height - 1f);
-        using var path = Theme.RoundedRect(r, 10);
+        using var path = Theme.RoundedRect(r, 10 * s);
         using (var grad = new LinearGradientBrush(r, Theme.PanelTop, Theme.PanelBottom, 90f))
             g.FillPath(grad, path);
         using (var pen = new Pen(Color.FromArgb(0x66, Theme.Accent), 1f))
@@ -36,8 +37,10 @@ public sealed class GlassPanel : Panel
         base.OnPaint(e);
         if (!string.IsNullOrEmpty(Caption))
         {
+            float s = Theme.Scale(this);
             using var brush = new SolidBrush(Theme.Accent);
-            e.Graphics.DrawString(Caption.ToUpperInvariant(), Theme.SectionFont, brush, 14, 9);
+            using var font = Theme.ScaleFont(Theme.SectionFont, this);
+            e.Graphics.DrawString(Caption.ToUpperInvariant(), font, brush, 14 * s, 9 * s);
         }
     }
 }

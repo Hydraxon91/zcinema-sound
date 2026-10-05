@@ -27,6 +27,13 @@ public static class Theme
     public static readonly Font ButtonFont = new("Segoe UI", 8.5f, FontStyle.Regular);
     public static readonly Font PillFont = new("Segoe UI", 9f, FontStyle.Bold);
 
+    /// <summary>DPI factor (1.0 at 96 DPI).</summary>
+    public static float Scale(Control c) => c.DeviceDpi / 96f;
+
+    /// <summary>A DPI-scaled copy of a theme font (always a new instance, safe to dispose).</summary>
+    public static Font ScaleFont(Font f, Control c)
+        => new(f.FontFamily, f.Size * Scale(c), f.Style, GraphicsUnit.Point);
+
     public static GraphicsPath RoundedRect(RectangleF r, float radius)
     {
         float d = radius * 2f;

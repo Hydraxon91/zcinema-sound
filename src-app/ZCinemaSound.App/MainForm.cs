@@ -73,6 +73,8 @@ public sealed class MainForm : Form, IActionHost
     public MainForm()
     {
         Text = "Z Cinema Sound";
+        AutoScaleMode = AutoScaleMode.Dpi;
+        AutoScaleDimensions = new SizeF(96F, 96F);
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(W, H);
@@ -80,7 +82,7 @@ public sealed class MainForm : Form, IActionHost
         DoubleBuffered = true;
         Icon = LoadAppIcon();
 
-        _content.Left = 0; _content.Top = 0; _content.Width = W; _content.Height = H; _content.BackColor = Theme.Bg;
+        _content.Dock = DockStyle.Fill; _content.BackColor = Theme.Bg;
         Controls.Add(_content);
 
         BuildTitleBar();
@@ -99,7 +101,7 @@ public sealed class MainForm : Form, IActionHost
 
         // top-most frame overlay: region = ring (outer rounded minus inner), painted amber,
         // so the border sits above all content and connects at the corners.
-        _frame.Left = 0; _frame.Top = 0; _frame.Width = W; _frame.Height = H;
+        _frame.Dock = DockStyle.Fill;
         _frame.BackColor = Theme.Accent;
         Controls.Add(_frame);
         _frame.BringToFront();
@@ -200,21 +202,28 @@ public sealed class MainForm : Form, IActionHost
 
     protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e); SetRegion(); }
     protected override void OnShown(EventArgs e) { base.OnShown(e); SetRegion(); SetContentRegion(); SetFrameRegion(); }
-    protected override void OnResize(EventArgs e) { base.OnResize(e); SetRegion(); }
+    protected override void OnResize(EventArgs e) { base.OnResize(e); SetRegion(); SetContentRegion(); SetFrameRegion(); }
 
     private void SetContentRegion()
     {
-        try { using var p = Theme.RoundedRect(new RectangleF(3, 3, W - 6, H - 6), 11); _content.Region = new Region(p); } catch { }
+        try
+        {
+            float s = Theme.Scale(this);
+            using var p = Theme.RoundedRect(new RectangleF(3 * s, 3 * s, _content.Width - 6 * s, _content.Height - 6 * s), 11 * s);
+            _content.Region = new Region(p);
+        }
+        catch { }
     }
 
     private void SetFrameRegion()
     {
         try
         {
+            float s = Theme.Scale(this);
             // outer = full square; the WINDOW region clips it to the rounded shape, so the
             // amber bleeds exactly to the window edge (no gap at the corners).
-            var ring = new Region(new Rectangle(0, 0, W, H));
-            using var inner = Theme.RoundedRect(new RectangleF(3, 3, W - 6, H - 6), 11);
+            var ring = new Region(new Rectangle(0, 0, ClientSize.Width, ClientSize.Height));
+            using var inner = Theme.RoundedRect(new RectangleF(3 * s, 3 * s, ClientSize.Width - 6 * s, ClientSize.Height - 6 * s), 11 * s);
             ring.Exclude(inner);
             _frame.Region = ring;
         }
@@ -222,7 +231,13 @@ public sealed class MainForm : Form, IActionHost
     }
     private void SetRegion()
     {
-        try { using var p = Theme.RoundedRect(new RectangleF(0, 0, Width, Height), 14); Region = new Region(p); } catch { }
+        try
+        {
+            float s = Theme.Scale(this);
+            using var p = Theme.RoundedRect(new RectangleF(0, 0, Width, Height), 14 * s);
+            Region = new Region(p);
+        }
+        catch { }
     }
 
     protected override void OnPaint(PaintEventArgs e) => base.OnPaint(e);

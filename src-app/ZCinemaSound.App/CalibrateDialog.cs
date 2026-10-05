@@ -18,6 +18,8 @@ public sealed class CalibrateDialog : Form
     {
         _vol = vol;
         Text = "Calibrate ceiling";
+        AutoScaleMode = AutoScaleMode.Dpi;
+        AutoScaleDimensions = new SizeF(96F, 96F);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         StartPosition = FormStartPosition.CenterParent;
         ClientSize = new Size(400, 190);

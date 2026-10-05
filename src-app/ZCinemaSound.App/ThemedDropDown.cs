@@ -57,17 +57,18 @@ public sealed class ThemedDropDown : Control
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.Clear(BackColor);
 
+        float s = Theme.Scale(this);
         var r = new RectangleF(0.5f, 0.5f, Width - 1f, Height - 1f);
-        using (var path = Theme.RoundedRect(r, 6))
+        using (var path = Theme.RoundedRect(r, 6 * s))
         {
             using (var b = new SolidBrush(Theme.Plate)) g.FillPath(b, path);
             using (var pen = new Pen(Color.FromArgb(0x66, Theme.Accent), 1f)) g.DrawPath(pen, path);
         }
 
         string text = _selected >= 0 && _selected < _items.Count ? _items[_selected] : "";
-        TextRenderer.DrawText(g, text, Font, new Rectangle(8, 0, Width - 28, Height), Theme.Accent,
+        TextRenderer.DrawText(g, text, Font, new Rectangle((int)(8 * s), 0, Width - (int)(28 * s), Height), Theme.Accent,
             TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.EndEllipsis);
-        TextRenderer.DrawText(g, "\u25BC", Font, new Rectangle(Width - 22, 0, 18, Height), Theme.Accent,
+        TextRenderer.DrawText(g, "\u25BC", Font, new Rectangle(Width - (int)(22 * s), 0, (int)(18 * s), Height), Theme.Accent,
             TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
     }
 
