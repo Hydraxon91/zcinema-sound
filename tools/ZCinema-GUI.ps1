@@ -98,7 +98,7 @@ $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = "FixedSingle"
 $form.MaximizeBox = $false
 
-$r = New-Row "Ceiling" 10 -20 0;  $tbPreamp = $r.Track; $lblPreampV = $r.Value
+$r = New-Row "Ceiling" 10 -60 0;  $tbPreamp = $r.Track; $lblPreampV = $r.Value
 $r = New-Row "Bass"    56 -12 12; $tbBass   = $r.Track; $lblBassV   = $r.Value
 $r = New-Row "Treble"  102 -12 12; $tbTreble = $r.Track; $lblTrebleV = $r.Value
 $r = New-Row "Dialogue" 148 -9 9;  $tbDialog = $r.Track; $lblDialogV = $r.Value

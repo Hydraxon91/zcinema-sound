@@ -273,7 +273,7 @@ function Invoke-ZCinemaRemoteAction {
                 "width+"    { $pr.Width      = [math]::Min(0.30, $pr.Width + 0.02) }
                 "width-"    { $pr.Width      = [math]::Max(0.0,  $pr.Width - 0.02) }
                 "ceiling+"  { $pr.PreampDb   = [math]::Min(0,    $pr.PreampDb + 1) }
-                "ceiling-"  { $pr.PreampDb   = [math]::Max(-20,  $pr.PreampDb - 1) }
+                "ceiling-"  { $pr.PreampDb   = [math]::Max(-60,  $pr.PreampDb - 1) }
                 default { return }
             }
             $text = New-ZCinemaProfileText -PreampDb $pr.PreampDb -BassGain $pr.BassGain -SubGain $pr.SubGain `
