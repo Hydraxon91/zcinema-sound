@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.0 (unreleased) — 2026-10-05
+## v0.4.0 — 2026-10-05
 
 - **Global hotkeys:** `Ctrl+Alt+1..6` apply the presets and `Ctrl+Alt+0` opens the
   panel (tray toggle, off by default).
