@@ -2,49 +2,139 @@
 
 <p align="center"><img src="assets/ZCinemaSound.png" width="112" alt="ZCinema Sound icon"></p>
 
-> **Current app:** the native **C#/.NET** build in `src-app\` is the primary
-> product — a themed tray app with the 8-band EQ, a Windows volume slider,
-> ceiling calibration and remote-button mapping. The **PowerShell scripts below
-> are legacy/reference** (they still work) and are kept until the `.exe` reaches
-> full parity. See [Native app (C#)](#native-app-c).
+Makes the **Logitech Z Cinéma** USB speakers sound right on Windows 10/11 — proper
+volume, bass, treble and EQ, plus remote-button control — **with no kernel driver**.
 
-## Native app (C#)
+**[⬇ Download the installer](https://github.com/Hydraxon91/zcinema-sound/releases)** (`ZCinemaSound-Setup.exe`)
 
-The current app lives in `src-app\` (`ZCinemaSound.Core` + `ZCinemaSound.App` +
-`ZCinemaSound.Tests`). It needs the [.NET 10 SDK](https://dotnet.microsoft.com/) to build.
+## What is this?
 
-![ZCinema Sound app](docs/images/screenshot.png)
+The Z Cinéma is a ~2007 2.1 USB speaker set. Windows detects it fine, but two things
+are broken today: the volume slider feels "maxed out" around 40%, and the original
+Logitech/SRS tone controls (bass, treble, dialog clarity, surround) are gone because
+the 2007 driver can't install on modern Windows.
+
+ZCinema Sound is a small **tray app** that fixes both in user space. It drives
+[Equalizer APO](https://sourceforge.net/projects/equalizerapo/) — the open-source
+engine that actually processes the audio — and gives you working volume, Bass/Treble,
+an 8-band EQ, stereo width and dialogue clarity, presets, per-device tuning and
+remote-button mapping. It runs entirely in **user mode (no kernel driver, no
+test-signing)**, so it's safe to use alongside games and kernel-level anti-cheat.
+
+![ZCinema Sound — Sound tab](docs/images/screenshot.png)
 ![ZCinema Sound — Remote tab](docs/images/screenshot-remote.png)
 
-### Install (recommended)
+## Features
 
-Download **`ZCinemaSound-Setup.exe`** from the
-[latest release](https://github.com/Hydraxon91/zcinema-sound/releases).
+| What you get | Details |
+|---|---|
+| **Volume + mute** | Drives the speakers' Windows volume, so the slider, keyboard keys, on-screen display and the remote all stay in sync. |
+| **Ceiling calibration** | Measures the real volume taper and sets a ceiling so **100% = your comfortable maximum** (fixes the "maxed out at 40%" feel). |
+| **Bass / Treble** | Broad tone controls. |
+| **8-band EQ** | Parametric bands for finer shaping. |
+| **Dialogue clarity** | A gentle boost around 3 kHz so voices cut through. |
+| **Width** | Stereo widening — an approximation of the old surround staging. |
+| **Presets** | Flat / Music / Movies / Night / Vocal / V-Shape, plus 3 savable Custom slots you can rename or clear. |
+| **Per-device tuning** | Each output device keeps its own settings. |
+| **Remote mapping** | Reassign the speaker remote's spare buttons to presets or actions (apps, scripts, URLs, key macros), with a **Learn** mode. |
+| **Tray app** | Starts in the tray. Its menu has Presets, global hotkeys, bypass, backup/restore, update check and more. |
 
-- **Equalizer APO is required** (GPLv2 — not bundled). The installer detects it
-  and, if missing, opens its download page and waits for you to install it, then
-  click **Retry** (or Cancel to abort).
-- After setup, open **Equalizer APO's Device Selector**, tick
-  **Speakers (Z Cinéma)**, click OK, then **reboot** so the effects attach.
-- The installer is **unsigned**, so SmartScreen may warn ("More info → Run anyway").
-- The same release also ships the portable **`ZCinemaSound.App.exe`** (no installer).
-- **Smaller download?** **`ZCinemaSound-Setup-lite.exe`** is framework-dependent and
-  needs the [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
-  (the installer checks for it). Use the regular `ZCinemaSound-Setup.exe` if you'd
-  rather not install the runtime.
-- The installer asks whether to install **for all users** (admin, into Program Files)
-  or **for me only** (no admin, into `%LocalAppData%\Programs`).
-- **WinGet (portable):** `winget install Hydraxon91.ZCinemaSound` once the package is
-  published (see `winget/README.md`). Code signing is staged in CI but not enabled yet
-  (`docs/SIGNING.md`).
+## Requirements
 
-### Build from source
+- **Windows 10 or 11, 64-bit.**
+- [**Equalizer APO**](https://sourceforge.net/projects/equalizerapo/) installed (GPLv2).
+  It does the audio processing and is **not bundled** with this project.
+- The **Z Cinéma** connected.
+
+## Quick start
+
+1. **Download** `ZCinemaSound-Setup.exe` from the
+   [latest release](https://github.com/Hydraxon91/zcinema-sound/releases) and run it.
+2. **If Equalizer APO isn't installed**, setup opens its download page and waits —
+   install it, then click **Retry**.
+3. At the end, tick **Open Equalizer APO Device Selector** (or open it later from the
+   tray menu), select **Speakers (Z Cinéma)**, and click OK.
+4. **Reboot** so the effects attach.
+
+That's it — the app starts in the tray. Open it from the tray icon, or press `Ctrl+Alt+0`.
+
+> The app is **unsigned** for now, so Windows SmartScreen may warn on first run
+> ("More info → Run anyway").
+
+### Other install options
+
+- **`ZCinemaSound-Setup-lite.exe`** — a smaller installer that needs the
+  [.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)
+  (setup checks for it).
+- **`ZCinemaSound.App.exe`** — a portable single-file build (no installer, no runtime
+  needed on the target).
+- **WinGet** — `winget install Hydraxon91.ZCinemaSound` (portable; once the package is
+  published — see `winget/README.md`).
+- **For all users vs. me only** — setup asks. "All users" installs to Program Files
+  (admin); "me only" installs to `%LocalAppData%\Programs` (no admin).
+
+## How volume works
+
+Keep using **Windows' own volume** as your everyday control — the remote's volume keys
+drive it too, so everything stays in sync.
+
+ZCinema Sound doesn't replace that. It sets a **ceiling** (an overall trim, called
+*Preamp*): if the speakers get loud too early, lower the ceiling so the whole slider
+is usable. The app's **Calibrate ceiling** button measures the real volume taper and
+tells you the exact value. Don't use a custom volume curve — it desyncs the Windows UI.
+
+## Limitations
+
+Straight about what this can't do.
+
+**Audio processing**
+
+- **No true surround.** The hardware is 2.1 (two satellites + a sub). Width is stereo
+  widening, not real rear-channel simulation.
+- **No room correction.** The EQ is manual — no measurement mic, no auto-tuning.
+- **No exclusive-mode processing.** Equalizer APO is a shared-mode effect; apps that
+  take the device in exclusive mode bypass it.
+- **No original SRS processing.** The 2007 Logitech/SRS effects (TruSurround, TruBass,
+  dialog clarity) can't be reproduced on the modern audio engine. <!-- TODO: verify -->
+
+**Hardware and speaker controls**
+
+- **No access to the speaker's own bass/treble.** Those live in the Z Cinéma's firmware
+  (the controls under the volume on the remote); software can't read or move them. The
+  Bass/Treble sliders here are a separate layer on top.
+- **Nothing is stored on the device.** Settings are per-PC. On another PC, a console or
+  Bluetooth, the sound is stock.
+
+**Platform and compatibility**
+
+- **No kernel driver, by design.** That's what keeps it anti-cheat-safe — but it also
+  means no driver-level hooks or vendor control-panel integration.
+- **Anti-cheat is never a guarantee.** Equalizer APO is user-mode and widely used with
+  games, but no anti-cheat promises anything. You can disable processing any time with
+  the tray's **Bypass processing**.
+
+**Packaging**
+
+- **Unsigned for now**, so SmartScreen may warn on first run. Code signing is staged in
+  CI — see [`docs/SIGNING.md`](docs/SIGNING.md).
+
+## FAQ & troubleshooting
+
+Stuck? Start with [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md). Related reading:
+
+- Anti-cheat and DRM notes — [`docs/ANTI-CHEAT.md`](docs/ANTI-CHEAT.md)
+- Remote button protocol — [`docs/REMOTE-CODES.md`](docs/REMOTE-CODES.md)
+- Code signing — [`docs/SIGNING.md`](docs/SIGNING.md)
+
+## Build from source
+
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/).
 
 ```powershell
 cd src-app
 dotnet build
-dotnet run --project ZCinemaSound.App      # run it
-dotnet test                                # unit tests
+dotnet run --project ZCinemaSound.App   # run it
+dotnet test                             # unit tests
 ```
 
 Single-file, self-contained `.exe` (no runtime needed on the target):
@@ -54,171 +144,61 @@ dotnet publish ZCinemaSound.App -c Release -r win-x64 --self-contained true `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
-The tray menu has **Install / update profile**, **Bypass processing** and
-**Uninstall** — so the app manages the Equalizer APO wiring itself (no legacy
-scripts needed; install/uninstall self-elevate).
+The app manages the Equalizer APO wiring itself (tray menu → **Install / update
+profile**, **Bypass processing**, **Uninstall**; install and uninstall self-elevate).
+Its profile lives at `…\EqualizerAPO\config\ZCinema.txt`, and your data (device
+profiles, remote mappings, custom slots, settings, backups) lives in
+`%APPDATA%\ZCinemaSound`.
 
-It shares the same profile (`…\EqualizerAPO\config\ZCinema.txt`) and the same
-`%APPDATA%\ZCinemaSound\` data as the legacy scripts, and uses the same
-single-instance mutex — so **don't run both at once**.
+<details>
+<summary>Per-device EQ scoping (technical detail)</summary>
 
-Tuning is kept **per output device**. With two or more devices configured, the app
-writes Equalizer APO one `If` block per device (matched by endpoint GUID) with an
-`Else` fallback to the active device's profile, so every device keeps its own sound
-and audio can never go silent. Prefer one global profile? Turn off **Per-device EQ
-scoping** in the tray menu.
+With two or more devices configured, the app writes Equalizer APO a scoped block per
+device, matched by the device's **endpoint GUID** (the unique ID Windows gives each
+output), with an `Else` fallback to the active device's profile — so every device keeps
+its own sound and audio can never go silent. Prefer one global profile? Turn off
+**Per-device EQ scoping** in the tray menu.
+</details>
 
-Sound profile + setup helper that makes the **Logitech Z Cinéma** USB speakers
-sound right on modern Windows (10/11) — proper volume behaviour, bass, treble
-and EQ — **without any kernel driver and without test-signing**.
+## Project layout
 
-It is a thin wrapper around [Equalizer APO](https://sourceforge.net/projects/equalizerapo/)
-(GPLv2), which does the actual audio processing.
-
-## Why this exists
-
-The Z Cinéma is a ~2007 2.1 USB speaker set (`USB\VID_046D&PID_0A0F`). Windows
-has always detected it fine (inbox `usbaudio`), but:
-
-- the volume slider feels "maxed out" around 40 %, and
-- the original Logitech/SRS tone controls (TruBass, TruSurround HD, bass/treble,
-  dialog clarity) no longer exist, because the 2007 driver can't install on
-  modern Windows.
-
-This project fixes both in user space. No driver, no signing, safe for
-kernel-level anti-cheat (EAC/BattlEye/Vanguard).
-
-## What you get
-
-| Feature | How |
-|---|---|
-| Volume that stays in sync | Windows' own volume everywhere (remote, OSD, media keys, per-app). `Preamp` sets the ceiling. |
-| Bass / Treble | Broad peaking bands, used like a bass/treble control (a shelf is not used because this Equalizer APO build ignores `LSC`/`HSC`) |
-| EQ | Parametric bands (edit text or use the Peace GUI) |
-| TruSurround-ish width | Stereo crossfeed (`Copy:` lines) |
-| Dialogue clarity | ~3 kHz presence boost |
-| Live GUI | The app's **Sound** tab (Bass, Treble, Dialogue, Width, ceiling + 8-band EQ); legacy equivalent: `legacy\tools\ZCinema-GUI.ps1` |
-| Tray app | The GUI **hosts the remote bridge** and lives in the notification tray: closing hides to tray, double-click/Open restores it, **Exit** quits. Optional **Start with Windows** (tray menu). |
-| Presets | Flat / Music / Movies / Night / Vocal / V-Shape (with EQ), plus 3 savable Custom slots |
-
-## What you don't get
-
-Straight about the limits:
-
-- **No real SRS TruSurround HD.** The stereo widener here is an approximation of
-  the surround staging, not the patented algorithm. (The 2007 SRS APO DLL does
-  load on Win11, but it can't be attached to the audio endpoint without a signed
-  driver package — and even then it's unproven on the modern engine.)
-- **No SRS treble / definition controls.** The original SRS software exposed
-  extra treble-style controls (Definition, Dialog Clarity). Here treble is a
-  single wide peaking band — similar in effect, but not the SRS processing.
-- **No access to the speaker's own bass and treble.** The Z Cinéma's built-in
-  bass/treble — the controls you reach under the volume (on the remote, or in the
-  original Logitech panel) — live in the speaker's firmware. Software cannot read
-  or move them. The GUI's Bass/Treble sliders are a separate layer added on top.
-- **No true surround.** The hardware is 2.1 (two satellites + sub). There is no
-  rear-channel simulation or multichannel decode — only stereo widening.
-- **No ASIO / WASAPI-exclusive processing.** Equalizer APO is a shared-mode
-  system effect; apps that take the device in exclusive mode bypass it.
-- **No room correction.** The EQ is manual — no measurement mic, no auto-tuning.
-- **Not stored on the device.** Settings are per-PC (an Equalizer APO config).
-  On another PC, a console, or Bluetooth, the sound is stock.
-- **No kernel driver, by design.** Good for anti-cheat, but it also means no
-  driver-level hooks or vendor control-panel integration; nothing is test-signed.
-- **Remote extras aren't implemented yet.** Media keys work inbox; the vendor HID
-  collection (`FFBC:0088`) is unused so far. A user-mode remote bridge is planned
-  — see `legacy\tools\Remote-Probe.ps1` and `docs\ROADMAP.md`.
-- **Not a signed app.** It ships as an unsigned single-file `.exe` (once
-  packaged) or PowerShell + Equalizer APO today; SmartScreen may warn on first run.
-- **Anti-cheat caveat.** Equalizer APO is user-mode and widely used with games,
-  but no anti-cheat guarantees anything — and you can disable it any time with
-  `src\Bypass-ZCinema.ps1`.
-
-## Requirements
-
-- Windows 10/11, 64-bit
-- [Equalizer APO](https://sourceforge.net/projects/equalizerapo/) installed
-  (you install it yourself — it is **not** bundled here, to respect its GPL and
-  to keep this repo free of third-party binaries)
-- The Z Cinéma connected
+```
+src-app/                  the app (C#/.NET 10)
+  ZCinemaSound.Core/      profile model, presets, device store, HID decode, updater
+  ZCinemaSound.App/       WinForms tray app (Sound + Remote tabs)
+  ZCinemaSound.Tests/     xUnit tests
+assets/                   icon artwork
+installer/                Inno Setup script (zcinema.iss)
+docs/                     ANTI-CHEAT, TROUBLESHOOTING, PRESETS, REMOTE-CODES, PORTING, ROADMAP, SIGNING
+winget/                   WinGet package manifests
+legacy/                   PowerShell/.bat toolkit (unsupported) — see legacy/README.md
+```
 
 ## Legacy PowerShell toolkit (unsupported)
 
-The native app above is **the product**. The original PowerShell toolkit is kept
-only as a reference/regression harness and now lives under **`legacy\`**
-(`legacy\ZCinema.bat`, `legacy\launchers\`, `legacy\src\`, `legacy\tools\`,
-`legacy\config\`, `legacy\presets\`). It is **not maintained**, and it shares the
-same profile and single-instance mutex as the app — **don't run both at once**.
-See `legacy\README.md`.
+The native app above is **the product**. The original PowerShell toolkit is kept only
+as an unmaintained reference/regression harness and lives under **`legacy\`**. It
+shares the same profile and single-instance mutex as the app, so **don't run both at
+once**; run it from inside `legacy\`. See [`legacy/README.md`](legacy/README.md).
 
-The app's control panel is a **tray app** that also runs the remote bridge, so
-your mapped remote buttons work while it's open. It starts in the tray — open it
-from the tray icon (or with the **Ctrl+Alt+0** hotkey). The tray menu has a
-**Presets** submenu (quick switching), **Manage custom slots…**, **Bypass
-processing**, **Show window on start**, **Global hotkeys**, **Back up / Restore
-settings…**, **Check for updates…** and more.
+<details>
+<summary>Legacy install / control panel / uninstall</summary>
 
-## Install (legacy PowerShell only)
+From `legacy\`:
 
-You don't need this if you used the installer above. From `legacy\`:
-`legacy\src\Install-ZCinema.ps1` (admin) copies `legacy\config\ZCinema.txt` into the
-Equalizer APO config folder and points `config.txt` at it. The old GUI is
-`legacy\tools\ZCinema-GUI.ps1`, calibration is
-`legacy\tools\Calibrate-Ceiling.ps1`, and removal is
-`legacy\src\Uninstall-ZCinema.ps1`. Your previous `config.txt` is backed up beside
-it as `config.txt.bak-<timestamp>`.
-
-## Volume, explained
-
-Do **not** use a custom volume curve — it desyncs the Windows UI. Instead:
-
-- Leave Windows volume as your everyday control. The Z Cinéma's remote volume
-  keys drive it natively, so everything stays in sync.
-- `Preamp:` in the config lowers the overall level so that **100 % equals your
-  comfortable maximum**. If the speakers "max out" at ~40 %, a preamp around
-  −8 to −13 dB makes the whole slider usable again.
-
-The app's **Calibrate ceiling** button (or the legacy
-`legacy\tools\Calibrate-Ceiling.ps1`) measures the endpoint's real dB taper and
-tells you the exact preamp to use.
-
-## Uninstall
-
-Use the app's tray menu → **Uninstall** (or Windows *Apps & features*). To remove
-the legacy PowerShell wiring instead, run `legacy\src\Uninstall-ZCinema.ps1`
-(keeps a backup of `config.txt`).
-
-## Layout
-
-```
-src-app/                          the product (C#/.NET 10)
-  ZCinemaSound.Core/              profile model, presets, per-device store, HID decode, updater
-  ZCinemaSound.App/               WinForms tray app (Sound + Remote tabs)
-  ZCinemaSound.Tests/             xUnit tests
-assets/    ZCinemaSound.ico/.png  app + README artwork (8-size icon pack)
-installer/ zcinema.iss            Inno Setup script (+ build-installer.ps1)
-docs/      ANTI-CHEAT, TROUBLESHOOTING, PRESETS, REMOTE-CODES, PORTING, ROADMAP
-legacy/    PowerShell/.bat toolkit (unsupported reference) — see legacy/README.md
-```
-
-The Equalizer APO profile the app writes lives at
-`…\EqualizerAPO\config\ZCinema.txt`; your data (device profiles, remote mappings,
-custom slots, settings, backups) lives in `%APPDATA%\ZCinemaSound`.
-
-## Icon
-
-<img src="assets/ZCinemaSound.png" width="48" alt="icon">
-
-Palette: `#010001` (major), `#D9872C` / `#AE4906` (accents), `#E1E0E1` (edge),
-`#FAFBCA` (very minor). `assets\ZCinemaSound.ico` is an 8-size pack
-(16/24/32/48/64/96/128/256) used for the window and tray icon, with a system-icon
-fallback if it's missing.
+- **Install:** `legacy\src\Install-ZCinema.ps1` (admin) copies
+  `legacy\config\ZCinema.txt` into the Equalizer APO config folder and points
+  `config.txt` at it (backs up the old one as `config.txt.bak-<timestamp>`).
+- **Control panel:** `legacy\tools\ZCinema-GUI.ps1`.
+- **Calibration:** `legacy\tools\Calibrate-Ceiling.ps1`.
+- **Uninstall:** `legacy\src\Uninstall-ZCinema.ps1`.
+</details>
 
 ## Credits / legal
 
 - Audio engine: **Equalizer APO** by Jonas Thedering (GPLv2) — not included here.
-- Not affiliated with, or endorsed by, Logitech or SRS Labs. "Logitech",
-  "Z Cinéma" and "TruSurround"/"TruBass" are trademarks of their owners and are
-  used descriptively.
+- Not affiliated with, or endorsed by, Logitech or SRS Labs. "Logitech", "Z Cinéma"
+  and "TruSurround"/"TruBass" are trademarks of their owners, used descriptively.
 - This repo contains **no** Logitech/SRS binaries and requires none.
-- Our code: MIT (see `LICENSE`).
+- Our code: MIT (see [`LICENSE`](LICENSE)).
+- Icon palette and artwork notes: [`docs/DESIGN.md`](docs/DESIGN.md).
