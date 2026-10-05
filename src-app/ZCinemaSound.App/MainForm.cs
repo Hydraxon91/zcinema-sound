@@ -575,7 +575,7 @@ public sealed class MainForm : Form, IActionHost
         menu.Items.Add("Open Equalizer APO Device Selector", null, (_, _) =>
         {
             var ds = EqualizerApo.DeviceSelectorPath();
-            if (ds is not null) { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(ds) { UseShellExecute = true }); } catch { } }
+            if (ds is not null) { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(ds) { UseShellExecute = true, Verb = "runas" }); } catch { } }
         });
         menu.Items.Add(new ToolStripSeparator());
         var miRemote = new ToolStripMenuItem("Remote mapping") { CheckOnClick = true, Checked = true };

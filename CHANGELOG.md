@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.2 — 2026-10-05
+
+- **Installer:** the post-install **Open Equalizer APO Device Selector** step now
+  runs elevated, fixing the *"requested operation requires elevation"* error.
+- **App:** the tray's **Open Equalizer APO Device Selector** action requests
+  elevation explicitly.
+
 ## v0.1.1 — 2026-10-05
 
 Layout fixes plus Equalizer APO attachment awareness.

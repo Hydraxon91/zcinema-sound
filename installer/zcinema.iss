@@ -3,14 +3,14 @@
 ; prerequisite* (GPLv2) — it is never bundled; the installer links to its
 ; official download and aborts until it is present.
 ;
-; Build:  ISCC.exe /DAppExeDir="<publish dir>" /DVersion=0.1.1 zcinema.iss
+; Build:  ISCC.exe /DAppExeDir="<publish dir>" /DVersion=0.1.2 zcinema.iss
 ; (or use ..\installer\build-installer.ps1)
 
 #ifndef AppExeDir
   #define AppExeDir "..\src-app\ZCinemaSound.App\bin\Release\net10.0-windows\win-x64\publish"
 #endif
 #ifndef Version
-  #define Version "0.1.1"
+  #define Version "0.1.2"
 #endif
 #ifndef OutputDir
   #define OutputDir "output"
@@ -56,8 +56,10 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 [Run]
 ; wire the Equalizer APO profile + config include (headless, quiet)
 Filename: "{app}\ZCinemaSound.App.exe"; Parameters: "--install --quiet"; Flags: runhidden waituntilterminated; StatusMsg: "Wiring the Equalizer APO config..."
-; offer to open Equalizer APO's Device Selector so the APO attaches to the Z Cinema
-Filename: "{code:DeviceSelectorPath}"; Description: "Open Equalizer APO Device Selector now (tick 'Speakers (Z Cinema)', then reboot)"; Flags: postinstall nowait skipifsilent; Check: HasDeviceSelector
+; offer to open Equalizer APO's Device Selector so the APO attaches to the Z Cinema.
+; runascurrentuser: postinstall entries otherwise run de-elevated, but DeviceSelector.exe
+; needs admin, so launching it that way fails with "requires elevation".
+Filename: "{code:DeviceSelectorPath}"; Description: "Open Equalizer APO Device Selector now (tick 'Speakers (Z Cinema)', then reboot)"; Flags: postinstall nowait skipifsilent runascurrentuser; Check: HasDeviceSelector
 ; launch the app
 Filename: "{app}\ZCinemaSound.App.exe"; Description: "Launch ZCinema Sound"; Flags: nowait postinstall skipifsilent
 
