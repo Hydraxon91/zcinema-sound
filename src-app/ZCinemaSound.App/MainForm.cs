@@ -1,4 +1,6 @@
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using ZCinemaSound.Core;
@@ -7,18 +9,30 @@ namespace ZCinemaSound.App;
 
 public sealed class MainForm : Form, IActionHost
 {
+    private const int W = 680, H = 780, TitleH = 42, ContentTop = 96;
+
     private readonly LedSlider _preamp = Slider(-60, 0, 16);
     private readonly LedSlider _bass = Slider(-12, 12, 13);
     private readonly LedSlider _treble = Slider(-12, 12, 13);
     private readonly LedSlider _dialog = Slider(-9, 9, 13);
     private readonly LedSlider _width = Slider(0, 30, 13);
+    private readonly LedSlider _volSlider = new() { Minimum = 0, Maximum = 100, Segments = 20, Width = 430, Height = 28 };
     private readonly List<Label> _rowValue = new();
+
+    private AudioEndpointVolume? _volume;
+    private readonly System.Windows.Forms.Timer _volTimer = new() { Interval = 350 };
+    private bool _volSyncing;
 
     private readonly LedSlider[] _eq = new LedSlider[ZCinemaProfile.EqFreqs.Length];
     private readonly Label[] _eqValue = new Label[ZCinemaProfile.EqFreqs.Length];
 
     private readonly Label _status = new();
-    private readonly ComboBox _preset = new();
+    private readonly SegmentedControl _tabsSeg = new();
+    private readonly SegmentedControl _presetSeg = new();
+    private readonly Panel _soundRoot = new();
+    private readonly Panel _remoteRoot = new();
+    private readonly Panel _content = new();
+    private readonly Panel _frame = new();
     private readonly System.Windows.Forms.Timer _debounce = new() { Interval = 300 };
     private readonly NotifyIcon _tray = new();
     private bool _loading;
@@ -28,11 +42,12 @@ public sealed class MainForm : Form, IActionHost
     private readonly HidReader _reader = new();
     private readonly DataGridView _grid = new();
     private readonly Label _remoteStatus = new();
-    private readonly Label _remoteHelp = new();
-    private readonly CheckBox _chkRemote = new() { Text = "Remote on", Checked = true, Width = 100 };
+    private readonly CheckBox _chkRemote = new() { Text = "Remote on", Checked = true, Width = 96, ForeColor = Theme.Accent, BackColor = Theme.Bg };
     private readonly Dictionary<string, DateTime> _lastPress = new();
     private bool _learn;
     private bool _remoteEnabled = true;
+
+    private static readonly string[] PresetNames = { "Flat", "Music", "Movies", "Night", "Vocal", "V-Shape" };
 
     private static readonly string[] ActionItems =
     {
@@ -47,29 +62,39 @@ public sealed class MainForm : Form, IActionHost
     public MainForm()
     {
         Text = "Z Cinema Sound";
-        ClientSize = new Size(620, 660);
+        FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.CenterScreen;
-        FormBorderStyle = FormBorderStyle.FixedSingle;
-        MaximizeBox = false;
+        ClientSize = new Size(W, H);
+        BackColor = Theme.Bg;
+        DoubleBuffered = true;
         Icon = LoadAppIcon();
 
-        var tabs = new TabControl { Dock = DockStyle.Fill };
-        var sound = new TabPage("Sound");
-        var remote = new TabPage("Remote");
-        tabs.TabPages.Add(sound);
-        tabs.TabPages.Add(remote);
-        Controls.Add(tabs);
+        _content.Left = 0; _content.Top = 0; _content.Width = W; _content.Height = H; _content.BackColor = Theme.Bg;
+        Controls.Add(_content);
 
-        BuildSoundTab(sound);
-        BuildRemoteTab(remote);
+        BuildTitleBar();
+
+        _tabsSeg.Items = new[] { "Sound", "Remote" };
+        _tabsSeg.Left = 14; _tabsSeg.Top = 52; _tabsSeg.Width = 300; _tabsSeg.Height = 34;
+        _tabsSeg.SelectedIndexChanged += (_, _) => SwitchTab();
+        _content.Controls.Add(_tabsSeg);
+
+        BuildSoundRoot();
+        BuildRemoteRoot();
+        _content.Controls.Add(_soundRoot);
+        _content.Controls.Add(_remoteRoot);
+        remoteVisible(false);
+        SetContentRegion();
+
+        // top-most frame overlay: region = ring (outer rounded minus inner), painted amber,
+        // so the border sits above all content and connects at the corners.
+        _frame.Left = 0; _frame.Top = 0; _frame.Width = W; _frame.Height = H;
+        _frame.BackColor = Theme.Accent;
+        Controls.Add(_frame);
+        _frame.BringToFront();
+        SetFrameRegion();
+
         BuildTray();
-
-        Theme.Apply(this);
-        _status.ForeColor = Theme.Minor;
-        _remoteStatus.ForeColor = Theme.Minor;
-        _remoteHelp.ForeColor = Theme.Edge;
-        foreach (var l in _rowValue) l.ForeColor = Theme.Minor;
-        foreach (var l in _eqValue) l.ForeColor = Theme.Minor;
 
         FormClosing += (_, e) =>
         {
@@ -81,120 +106,259 @@ public sealed class MainForm : Form, IActionHost
         };
 
         LoadProfileIntoUi();
+        _volume = AudioEndpointVolume.Open();
+        SyncVolumeFromDevice();
+        _volTimer.Tick += (_, _) => SyncVolumeFromDevice();
+        _volTimer.Start();
         _reader.ButtonPressed += OnReaderButton;
         _reader.Start();
     }
 
-    // ------------------------------------------------------------------ Sound
-    private void BuildSoundTab(TabPage page)
+    private static LedSlider Slider(int min, int max, int segments) => new()
     {
-        var panel = new Panel { Dock = DockStyle.Fill, Padding = new Padding(10), AutoScroll = true };
-        page.Controls.Add(panel);
+        Minimum = min, Maximum = max, Segments = segments, Width = 430, Height = 28,
+    };
 
-        int y = 16;
-        Row(panel, "Ceiling", _preamp, ref y);
-        Row(panel, "Bass", _bass, ref y);
-        Row(panel, "Treble", _treble, ref y);
-        Row(panel, "Dialogue", _dialog, ref y);
-        Row(panel, "Width", _width, ref y);
+    private void SwitchTab()
+    {
+        bool sound = _tabsSeg.SelectedIndex == 0;
+        _soundRoot.Visible = sound;
+        _remoteRoot.Visible = !sound;
+    }
 
-        var lblPreset = new Label { Text = "Preset", Left = 14, Top = y + 6, Width = 70, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
-        _preset.Left = 96; _preset.Top = y; _preset.Width = 170; _preset.DropDownStyle = ComboBoxStyle.DropDownList;
-        _preset.Items.AddRange(new object[] { "(custom)", "Flat", "Music", "Movies", "Night", "Vocal", "V-Shape" });
-        _preset.SelectedIndex = 0;
-        _preset.SelectedIndexChanged += (_, _) =>
+    private void remoteVisible(bool v) { _soundRoot.Visible = !v; _remoteRoot.Visible = v; }
+
+    // ------------------------------------------------------------- title bar
+    private void BuildTitleBar()
+    {
+        var bar = new Panel { Left = 3, Top = 3, Width = W - 6, Height = TitleH, BackColor = Theme.PanelTop };
+        _content.Controls.Add(bar);
+
+        Icon? icon = Icon;
+        var pic = new PictureBox { Left = 14, Top = 11, Width = 20, Height = 20, SizeMode = PictureBoxSizeMode.StretchImage, BackColor = Color.Transparent };
+        try { if (icon is not null) pic.Image = icon.ToBitmap(); } catch { }
+        bar.Controls.Add(pic);
+
+        var title = new Label { Text = "Z Cinema Sound", Left = 42, Top = 9, Width = 300, Height = 24, ForeColor = Theme.Accent, BackColor = Color.Transparent, Font = Theme.TitleFont };
+        bar.Controls.Add(title);
+
+        var min = new Label { Text = "–", Left = W - 70, Top = 7, Width = 28, Height = 26, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Accent, BackColor = Color.Transparent, Font = new Font("Segoe UI", 10f) };
+        var close = new Label { Text = "✕", Left = W - 38, Top = 7, Width = 28, Height = 26, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Accent, BackColor = Color.Transparent, Font = new Font("Segoe UI", 9f) };
+        bar.Controls.Add(min); bar.Controls.Add(close);
+
+        min.MouseEnter += (_, _) => min.ForeColor = Theme.Minor; min.MouseLeave += (_, _) => min.ForeColor = Theme.Accent;
+        close.MouseEnter += (_, _) => close.ForeColor = Theme.Minor; close.MouseLeave += (_, _) => close.ForeColor = Theme.Accent;
+        min.Click += (_, _) => WindowState = FormWindowState.Minimized;
+        close.Click += (_, _) => ExitApp();
+
+        foreach (Control c in new Control[] { bar, pic, title }) c.MouseDown += DragWindow;
+    }
+
+    [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] private static extern IntPtr SendMessage(IntPtr h, int msg, IntPtr w, IntPtr l);
+    private void DragWindow(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+        ReleaseCapture();
+        SendMessage(Handle, 0xA1, (IntPtr)2, IntPtr.Zero); // WM_NCLBUTTONDOWN, HTCAPTION
+    }
+
+    protected override CreateParams CreateParams
+    {
+        get { var cp = base.CreateParams; cp.ClassStyle |= 0x20000; return cp; } // CS_DROPSHADOW
+    }
+
+    protected override void OnHandleCreated(EventArgs e) { base.OnHandleCreated(e); SetRegion(); }
+    protected override void OnShown(EventArgs e) { base.OnShown(e); SetRegion(); SetContentRegion(); SetFrameRegion(); }
+    protected override void OnResize(EventArgs e) { base.OnResize(e); SetRegion(); }
+
+    private void SetContentRegion()
+    {
+        try { using var p = Theme.RoundedRect(new RectangleF(3, 3, W - 6, H - 6), 11); _content.Region = new Region(p); } catch { }
+    }
+
+    private void SetFrameRegion()
+    {
+        try
         {
-            if (_loading || _preset.SelectedItem?.ToString() is not string name || name == "(custom)") return;
+            // outer = full square; the WINDOW region clips it to the rounded shape, so the
+            // amber bleeds exactly to the window edge (no gap at the corners).
+            var ring = new Region(new Rectangle(0, 0, W, H));
+            using var inner = Theme.RoundedRect(new RectangleF(3, 3, W - 6, H - 6), 11);
+            ring.Exclude(inner);
+            _frame.Region = ring;
+        }
+        catch { }
+    }
+    private void SetRegion()
+    {
+        try { using var p = Theme.RoundedRect(new RectangleF(0, 0, Width, Height), 14); Region = new Region(p); } catch { }
+    }
+
+    protected override void OnPaint(PaintEventArgs e) => base.OnPaint(e);
+
+    // ------------------------------------------------------------------ root
+    private void BuildSoundRoot()
+    {
+        _soundRoot.Left = 3; _soundRoot.Top = ContentTop; _soundRoot.Width = W - 6; _soundRoot.Height = H - ContentTop - 3;
+        _soundRoot.BackColor = Theme.Bg;
+
+        var output = new GlassPanel { Left = 14, Top = 6, Width = 652, Height = 124, Caption = "Output" };
+        RowVolume(output, 30);
+        Row(output, "Ceiling", _preamp, 70);
+
+        var tone = new GlassPanel { Left = 14, Top = 136, Width = 652, Height = 192, Caption = "Tone" };
+        Row(tone, "Bass", _bass, 30);
+        Row(tone, "Treble", _treble, 70);
+        Row(tone, "Dialogue", _dialog, 110);
+        Row(tone, "Width", _width, 150);
+
+        var eq = new GlassPanel { Left = 14, Top = 336, Width = 652, Height = 236, Caption = "Equalizer" };
+        BuildEq(eq);
+
+        _soundRoot.Controls.Add(output);
+        _soundRoot.Controls.Add(tone);
+        _soundRoot.Controls.Add(eq);
+
+        _presetSeg.Items = PresetNames;
+        _presetSeg.SelectedIndex = -1; // show none until the user picks one
+        _presetSeg.Left = 14; _presetSeg.Top = 580; _presetSeg.Width = 600; _presetSeg.Height = 34;
+        _presetSeg.SelectedIndexChanged += (_, _) =>
+        {
+            if (_loading || _presetSeg.SelectedIndex < 0) return;
             var p = EqualizerApo.LoadProfile();
-            Presets.Apply(p, name);
+            Presets.Apply(p, PresetNames[_presetSeg.SelectedIndex]);
             ApplyToUi(p);
             Save();
         };
-        panel.Controls.Add(lblPreset);
-        panel.Controls.Add(_preset);
-        y += 44;
+        _soundRoot.Controls.Add(_presetSeg);
 
-        var lblEq = new Label { Text = "Graphic EQ (dB)", Left = 14, Top = y, Width = 220, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
-        panel.Controls.Add(lblEq);
-        y += 28;
+        _status.Left = 18; _status.Top = 622; _status.Width = 644; _status.Height = 44;
+        _status.ForeColor = Theme.Muted; _status.Font = Theme.ValueFont;
+        _soundRoot.Controls.Add(_status);
 
-        string[] eqLabels = { "60", "170", "470", "1.2k", "2.4k", "4.7k", "10k", "14k" };
-        for (int i = 0; i < _eq.Length; i++)
-        {
-            int x = 24 + i * 66;
-            var freq = new Label { Text = eqLabels[i], Left = x, Top = y, Width = 50, TextAlign = ContentAlignment.MiddleCenter };
-            var track = new LedSlider
-            {
-                Orientation = Orientation.Vertical,
-                Minimum = -12, Maximum = 12, Segments = 13,
-                Width = 50, Height = 190, Left = x, Top = y + 20,
-            };
-            var val = new Label { Text = "0", Left = x, Top = y + 214, Width = 50, TextAlign = ContentAlignment.MiddleCenter };
-            track.Tag = val;
-            track.ValueChanged += (_, _) => { if (!_loading) { UpdateLabels(); _debounce.Stop(); _debounce.Start(); } };
-            _eq[i] = track;
-            _eqValue[i] = val;
-            panel.Controls.Add(freq); panel.Controls.Add(track); panel.Controls.Add(val);
-        }
-        y += 244;
-
-        _status.Left = 14; _status.Top = y; _status.Width = 560; _status.Height = 40;
-        panel.Controls.Add(_status);
-
-        foreach (var t in new[] { _preamp, _bass, _treble, _dialog, _width })
-            t.ValueChanged += (_, _) => { if (!_loading) { UpdateLabels(); _debounce.Stop(); _debounce.Start(); } };
         _debounce.Tick += (_, _) => { _debounce.Stop(); Save(); };
     }
 
-    private static LedSlider Slider(int min, int max, int segments) => new()
+    private void RowVolume(Control parent, int y)
     {
-        Minimum = min, Maximum = max, Segments = segments, Width = 430, Height = 30,
-    };
-
-    private void Row(Control parent, string name, LedSlider track, ref int y)
-    {
-        var label = new Label { Text = name, Left = 14, Top = y + 6, Width = 74, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
-        track.Left = 96; track.Top = y;
-        var value = new Label { Left = 530, Top = y + 6, Width = 60, TextAlign = ContentAlignment.MiddleRight };
-        track.Tag = value;
-        _rowValue.Add(value);
-        parent.Controls.Add(label); parent.Controls.Add(track); parent.Controls.Add(value);
-        y += 40;
+        var label = new Label { Text = "Windows", Left = 14, Top = y + 4, Width = 96, ForeColor = Theme.Edge, BackColor = Color.Transparent, Font = Theme.LabelFont };
+        int pw = parent.Width;
+        _volSlider.Left = 112; _volSlider.Top = y; _volSlider.Width = pw - 112 - 104; _volSlider.Height = 28;
+        var value = new Label { Left = pw - 96, Top = y + 4, Width = 82, TextAlign = ContentAlignment.MiddleRight, ForeColor = Theme.Minor, BackColor = Color.Transparent, Font = Theme.ValueFont };
+        _volSlider.Tag = value;
+        _volSlider.ValueChanged += (_, _) =>
+        {
+            value.Text = _volSlider.Value + " %";
+            if (_volSyncing || _volume is null) return;
+            _volume.SetScalar(_volSlider.Value / 100f);
+        };
+        parent.Controls.Add(label); parent.Controls.Add(_volSlider); parent.Controls.Add(value);
     }
 
-    // ----------------------------------------------------------------- Remote
-    private void BuildRemoteTab(TabPage page)
+    private void SyncVolumeFromDevice()
     {
-        var panel = new Panel { Dock = DockStyle.Fill };
-        page.Controls.Add(panel);
+        if (_volume is null || _volSlider.Tag is not Label lbl) return;
+        int v = (int)Math.Round(_volume.GetScalar() * 100);
+        if (Math.Abs(v - _volSlider.Value) >= 1)
+        {
+            _volSyncing = true;
+            _volSlider.Value = v;
+            _volSyncing = false;
+        }
+        lbl.Text = _volSlider.Value + " %";
+    }
 
-        _remoteHelp.Text = "Map the remote's free buttons. app/script/url/keys use the Value box. Click Learn, then press a remote button.";
-        _remoteHelp.Left = 8; _remoteHelp.Top = 6; _remoteHelp.Width = 594; _remoteHelp.Height = 24;
-        panel.Controls.Add(_remoteHelp);
+    private void Row(Control parent, string name, LedSlider track, int y)
+    {
+        var label = new Label { Text = name, Left = 14, Top = y + 4, Width = 96, ForeColor = Theme.Edge, BackColor = Color.Transparent, Font = Theme.LabelFont };
+        int pw = parent.Width;
+        track.Left = 112; track.Top = y; track.Width = pw - 112 - 104; track.Height = 28;
+        var value = new Label { Left = pw - 96, Top = y + 4, Width = 82, TextAlign = ContentAlignment.MiddleRight, ForeColor = Theme.Minor, BackColor = Color.Transparent, Font = Theme.ValueFont };
+        track.Tag = value;
+        _rowValue.Add(value);
+        track.ValueChanged += (_, _) => { if (!_loading) { UpdateLabels(); _presetSeg.SelectedIndex = -1; _debounce.Stop(); _debounce.Start(); } };
+        parent.Controls.Add(label); parent.Controls.Add(track); parent.Controls.Add(value);
+    }
 
-        _grid.Left = 8; _grid.Top = 32; _grid.Width = 592; _grid.Height = 372;
+    private void BuildEq(Control parent)
+    {
+        string[] names = { "60", "170", "470", "1.2k", "2.4k", "4.7k", "10k", "14k" };
+        int start = 50, step = 72, colW = 48;
+        for (int i = 0; i < _eq.Length; i++)
+        {
+            int x = start + i * step;
+            var freq = new Label { Text = names[i], Left = x, Top = 34, Width = colW, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Edge, BackColor = Color.Transparent, Font = Theme.SectionFont };
+            var track = new LedSlider { Orientation = Orientation.Vertical, Minimum = -12, Maximum = 12, Segments = 13, Left = x, Top = 56, Width = colW, Height = 150 };
+            var val = new Label { Text = "0", Left = x, Top = 210, Width = colW, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Minor, BackColor = Color.Transparent, Font = Theme.ValueFont };
+            track.Tag = val;
+            track.ValueChanged += (_, _) => { if (!_loading) { UpdateLabels(); _presetSeg.SelectedIndex = -1; _debounce.Stop(); _debounce.Start(); } };
+            _eq[i] = track; _eqValue[i] = val;
+            parent.Controls.Add(freq); parent.Controls.Add(track); parent.Controls.Add(val);
+        }
+    }
+
+    // ---------------------------------------------------------------- remote
+    private void BuildRemoteRoot()
+    {
+        _remoteRoot.Left = 3; _remoteRoot.Top = ContentTop; _remoteRoot.Width = W - 6; _remoteRoot.Height = H - ContentTop - 3;
+        _remoteRoot.BackColor = Theme.Bg;
+        _remoteRoot.Visible = false;
+
+        var panel = new GlassPanel { Left = 14, Top = 6, Width = 652, Height = 616, Caption = "Remote mapping" };
+        _remoteRoot.Controls.Add(panel);
+
+        var help = new Label
+        {
+            Left = 14, Top = 34, Width = 624, Height = 34,
+            Text = "Map the remote's free buttons. app / script / url / keys use the Value box. Click Learn, then press a remote button.",
+            ForeColor = Theme.Edge, BackColor = Color.Transparent, Font = new Font("Segoe UI", 8.5f),
+        };
+        panel.Controls.Add(help);
+
+        _grid.Left = 14; _grid.Top = 72; _grid.Width = 624; _grid.Height = 420;
         _grid.AllowUserToAddRows = false;
         _grid.RowHeadersVisible = false;
+        _grid.RowTemplate.Height = 20;
         _grid.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
         _grid.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Remote button", ReadOnly = true, FillWeight = 130 });
-        var combo = new DataGridViewComboBoxColumn { HeaderText = "Action", FillWeight = 200 };
+        var combo = new DataGridViewComboBoxColumn { HeaderText = "Action", FillWeight = 210, FlatStyle = FlatStyle.Flat };
         combo.Items.AddRange(ActionItems);
+        combo.DefaultCellStyle.BackColor = Color.FromArgb(0x0B, 0x09, 0x07);
+        combo.DefaultCellStyle.ForeColor = Theme.Accent;
+        combo.DefaultCellStyle.SelectionBackColor = Theme.AccentDark;
+        combo.DefaultCellStyle.SelectionForeColor = Theme.Minor;
         _grid.Columns.Add(combo);
         _grid.Columns.Add(new DataGridViewTextBoxColumn { HeaderText = "Value (app / script / url / keys)", FillWeight = 240 });
+        Theme.StyleGrid(_grid);
+        _grid.EditingControlShowing += (_, e) =>
+        {
+            if (e.Control is ComboBox cb)
+            {
+                cb.FlatStyle = FlatStyle.Flat;
+                cb.BackColor = Color.FromArgb(0x0B, 0x09, 0x07);
+                cb.ForeColor = Theme.Accent;
+                cb.DrawMode = DrawMode.OwnerDrawFixed;
+                cb.ItemHeight = 20;
+                cb.DrawItem -= ComboDraw;
+                cb.DrawItem += ComboDraw;
+            }
+        };
         panel.Controls.Add(_grid);
 
-        var bar = new FlowLayoutPanel { Left = 8, Top = 412, Width = 592, Height = 36 };
-        var btnLearn = new Button { Text = "Learn (press a button)", Width = 150, Height = 26 };
-        var btnSave = new Button { Text = "Save", Width = 66, Height = 26 };
-        var btnDefaults = new Button { Text = "Restore defaults", Width = 108, Height = 26 };
-        var btnReload = new Button { Text = "Reload file", Width = 86, Height = 26 };
-        var btnBrowse = new Button { Text = "Browse...", Width = 78, Height = 26 };
-        var btnExit = new Button { Text = "Exit", Width = 56, Height = 26 };
+        var bar = new FlowLayoutPanel { Left = 14, Top = 504, Width = 624, Height = 36, BackColor = Color.Transparent };
+        var btnLearn = Mk("Learn (press a button)", 150);
+        var btnSave = Mk("Save", 66);
+        var btnDefaults = Mk("Restore defaults", 108);
+        var btnReload = Mk("Reload file", 86);
+        var btnBrowse = Mk("Browse...", 78);
+        var btnExit = Mk("Exit", 56);
         bar.Controls.AddRange(new Control[] { btnLearn, btnSave, btnDefaults, btnReload, btnBrowse, _chkRemote, btnExit });
         panel.Controls.Add(bar);
 
-        _remoteStatus.Left = 8; _remoteStatus.Top = 452; _remoteStatus.Width = 592; _remoteStatus.Height = 30;
+        _remoteStatus.Left = 14; _remoteStatus.Top = 548; _remoteStatus.Width = 624; _remoteStatus.Height = 52;
+        _remoteStatus.ForeColor = Theme.Muted; _remoteStatus.BackColor = Color.Transparent; _remoteStatus.Font = Theme.ValueFont;
         panel.Controls.Add(_remoteStatus);
 
         btnLearn.Click += (_, _) => { _learn = true; _remoteStatus.Text = "Listening... press a remote button now."; };
@@ -206,6 +370,23 @@ public sealed class MainForm : Form, IActionHost
         _chkRemote.CheckedChanged += (_, _) => _remoteEnabled = _chkRemote.Checked;
 
         LoadRemoteGrid();
+    }
+
+    private static Button Mk(string text, int width)
+    {
+        var b = new Button { Text = text, Width = width, Height = 26 };
+        Theme.StyleButton(b);
+        return b;
+    }
+
+    private static void ComboDraw(object? sender, DrawItemEventArgs e)
+    {
+        if (e.Index < 0 || sender is not ComboBox cb) return;
+        bool sel = (e.State & DrawItemState.Selected) != 0;
+        using var back = new SolidBrush(sel ? Theme.AccentDark : Color.FromArgb(0x0B, 0x09, 0x07));
+        e.Graphics.FillRectangle(back, e.Bounds);
+        TextRenderer.DrawText(e.Graphics, cb.Items[e.Index]?.ToString() ?? "", Theme.PillFont, e.Bounds,
+            sel ? Theme.Minor : Theme.Accent, TextFormatFlags.Left | TextFormatFlags.VerticalCenter);
     }
 
     private void LoadRemoteGrid()
@@ -299,9 +480,7 @@ public sealed class MainForm : Form, IActionHost
     // --------------------------------------------------------------- tray
     private void BuildTray()
     {
-        _tray.Icon = Icon;
-        _tray.Text = "ZCinema Sound";
-        _tray.Visible = true;
+        _tray.Icon = Icon; _tray.Text = "ZCinema Sound"; _tray.Visible = true;
         var menu = new ContextMenuStrip();
         menu.Items.Add("Open control panel", null, (_, _) => ShowApp());
         var miRemote = new ToolStripMenuItem("Remote mapping") { CheckOnClick = true, Checked = true };
@@ -335,6 +514,8 @@ public sealed class MainForm : Form, IActionHost
     private void ExitApp()
     {
         _exiting = true;
+        try { _volTimer.Stop(); } catch { }
+        try { _volume?.Dispose(); } catch { }
         try { _reader.Stop(); } catch { }
         _tray.Visible = false;
         Close();
