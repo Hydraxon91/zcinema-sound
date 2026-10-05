@@ -26,6 +26,8 @@ public sealed class MainForm : Form, IActionHost
     private readonly ThemedDropDown _deviceCombo = new();
     private List<AudioEndpointDevice> _devices = new();
     private bool _deviceLoading;
+    private AppSettings _settings = AppSettings.Load();
+    private readonly System.Windows.Forms.Timer _deviceTimer = new() { Interval = 2000 };
     private readonly System.Windows.Forms.Timer _volTimer = new() { Interval = 350 };
     private bool _volSyncing;
     private readonly EventWaitHandle _showEvent = new(false, EventResetMode.AutoReset, @"Local\ZCinema_Show");
@@ -114,17 +116,15 @@ public sealed class MainForm : Form, IActionHost
         _volume = AudioEndpointVolume.Open();
         PopulateDevices();
         SyncVolumeFromDevice();
-        if (_volume is not null && !EqualizerApo.IsAttached(_volume.EndpointGuid))
-        {
-            _status.Text = "Note: Equalizer APO isn't attached to the Z Cinema endpoint yet - open its Device Selector and reboot.";
-            _status.ForeColor = Theme.Accent;
-        }
         _volTimer.Tick += (_, _) => SyncVolumeFromDevice();
         _volTimer.Start();
+        _deviceTimer.Tick += (_, _) => RefreshDevices();
+        _deviceTimer.Start();
         _showTimer.Tick += (_, _) => { if (_showEvent.WaitOne(0)) ShowApp(); };
         _showTimer.Start();
         _reader.ButtonPressed += OnReaderButton;
         _reader.Start();
+        if (_settings.StartMinimized) BeginInvoke(new Action(HideToTray));
     }
 
     private static LedSlider Slider(int min, int max, int segments) => new()
@@ -251,10 +251,7 @@ public sealed class MainForm : Form, IActionHost
         _presetSeg.SelectedIndexChanged += (_, _) =>
         {
             if (_loading || _presetSeg.SelectedIndex < 0) return;
-            var p = EqualizerApo.LoadProfile();
-            Presets.Apply(p, PresetNames[_presetSeg.SelectedIndex]);
-            ApplyToUi(p);
-            Save();
+            ApplyPreset(PresetNames[_presetSeg.SelectedIndex]);
         };
         _soundRoot.Controls.Add(_presetSeg);
 
@@ -340,18 +337,7 @@ public sealed class MainForm : Form, IActionHost
 
     private void LoadCustomSlot(string slot)
     {
-        var slots = RemoteMap.ReadCustomSlots();
-        if (!slots.TryGetValue(slot, out var c)) { _status.Text = $"Custom {slot} is empty."; return; }
-        var p = EqualizerApo.LoadProfile();
-        p.PreampDb = c.Preamp;
-        p.BassGain = c.Bass;
-        p.SubGain = Math.Round(c.Bass * 0.6, 1);
-        p.TrebleGain = c.Treble;
-        p.DialogGain = c.Dialog;
-        p.Width = c.Width / 100.0;
-        p.EqGains = c.Eq;
-        Persist(p);
-        ApplyToUi(p);
+        if (!ApplyCustomSlot(slot)) { _status.Text = $"Custom {slot} is empty."; return; }
         _status.Text = $"Loaded Custom {slot}";
     }
 
@@ -486,6 +472,7 @@ public sealed class MainForm : Form, IActionHost
     {
         if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
         if (_grid.Columns[e.ColumnIndex] is not DataGridViewComboBoxColumn) return;
+        if (e.Graphics is null) return;
 
         e.PaintBackground(e.CellBounds, true);
         var r = e.CellBounds;
@@ -643,6 +630,25 @@ public sealed class MainForm : Form, IActionHost
         _tray.Icon = Icon; _tray.Text = "ZCinema Sound"; _tray.Visible = true;
         var menu = new ContextMenuStrip();
         menu.Items.Add("Open control panel", null, (_, _) => ShowApp());
+
+        var presets = new ToolStripMenuItem("Presets");
+        foreach (var name in PresetNames)
+        {
+            string n = name;
+            presets.DropDownItems.Add(n, null, (_, _) => { ApplyPreset(n); _status.Text = $"Preset: {n}"; });
+        }
+        presets.DropDownItems.Add(new ToolStripSeparator());
+        for (int i = 1; i <= 3; i++)
+        {
+            int slot = i;
+            presets.DropDownItems.Add("Custom " + slot, null, (_, _) =>
+            {
+                if (ApplyCustomSlot(slot.ToString())) _status.Text = $"Loaded Custom {slot}";
+                else _status.Text = $"Custom {slot} is empty.";
+            });
+        }
+        menu.Items.Add(presets);
+
         menu.Items.Add("Install / update profile", null, (_, _) => RunElevated("install"));
         menu.Items.Add("Bypass processing", null, (_, _) => ActionRunner.Run("bypass", this));
         menu.Items.Add("Open Equalizer APO Device Selector", null, (_, _) =>
@@ -651,18 +657,81 @@ public sealed class MainForm : Form, IActionHost
             if (ds is not null) { try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(ds) { UseShellExecute = true, Verb = "runas" }); } catch { } }
         });
         menu.Items.Add(new ToolStripSeparator());
+
         var miRemote = new ToolStripMenuItem("Remote mapping") { CheckOnClick = true, Checked = true };
         miRemote.CheckedChanged += (_, _) => { _remoteEnabled = miRemote.Checked; _chkRemote.Checked = miRemote.Checked; };
         menu.Items.Add(miRemote);
         var miAuto = new ToolStripMenuItem("Start with Windows") { CheckOnClick = true, Checked = GetAutostart() };
         miAuto.CheckedChanged += (_, _) => SetAutostart(miAuto.Checked);
         menu.Items.Add(miAuto);
+        var miMin = new ToolStripMenuItem("Start minimized") { CheckOnClick = true, Checked = _settings.StartMinimized };
+        miMin.CheckedChanged += (_, _) => { _settings.StartMinimized = miMin.Checked; _settings.Save(); };
+        menu.Items.Add(miMin);
         menu.Items.Add(new ToolStripSeparator());
+
+        menu.Items.Add("Back up settings...", null, (_, _) => ExportBackup());
+        menu.Items.Add("Restore settings...", null, (_, _) => ImportBackup());
+        menu.Items.Add("Open data folder", null, (_, _) => OpenDataFolder());
+        menu.Items.Add("About", null, (_, _) => ShowAbout());
+        menu.Items.Add(new ToolStripSeparator());
+
         menu.Items.Add("Uninstall", null, (_, _) => RunElevated("uninstall"));
         menu.Items.Add("Exit", null, (_, _) => ExitApp());
         _tray.ContextMenuStrip = menu;
         _tray.DoubleClick += (_, _) => ShowApp();
     }
+
+    private void ExportBackup()
+    {
+        using var dlg = new SaveFileDialog
+        {
+            Title = "Back up ZCinema Sound settings",
+            Filter = "JSON (*.json)|*.json|All files (*.*)|*.*",
+            FileName = "zcinema-backup.json",
+        };
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+        try { Backup.ExportTo(dlg.FileName); Info("Backup saved to\n" + dlg.FileName); }
+        catch (Exception ex) { Info("Backup failed: " + ex.Message); }
+    }
+
+    private void ImportBackup()
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Title = "Restore ZCinema Sound settings",
+            Filter = "JSON (*.json)|*.json|All files (*.*)|*.*",
+        };
+        if (dlg.ShowDialog() != DialogResult.OK) return;
+        try
+        {
+            Backup.ImportFrom(dlg.FileName).Apply();
+            _settings = AppSettings.Load();
+            LoadRemoteGrid();
+            PopulateDevices();
+            Info("Restored from\n" + dlg.FileName);
+        }
+        catch (Exception ex) { Info("Restore failed: " + ex.Message); }
+    }
+
+    private void OpenDataFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(RemoteMap.Dir());
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", "\"" + RemoteMap.Dir() + "\"") { UseShellExecute = true });
+        }
+        catch { }
+    }
+
+    private void ShowAbout()
+    {
+        var ver = typeof(MainForm).Assembly.GetName().Version?.ToString(3) ?? "?";
+        Info($"ZCinema Sound {ver}\n\nEqualizer APO does the audio processing (GPLv2, not bundled).\n" +
+             $"Remote mappings, per-device profiles and backups live in:\n{RemoteMap.Dir()}\n\n" +
+             "https://github.com/Hydraxon91/zcinema-sound");
+    }
+
+    private void Info(string text) => MessageBox.Show(text, "ZCinema Sound", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
     private static void RunElevated(string arg)
     {
@@ -766,8 +835,11 @@ public sealed class MainForm : Form, IActionHost
     private void PopulateDevices()
     {
         _devices = AudioEndpointVolume.ListRenderDevices().ToList();
-        int idx = _volume is null ? -1
-            : _devices.FindIndex(d => string.Equals(d.Guid, _volume.EndpointGuid, StringComparison.OrdinalIgnoreCase));
+        int idx = -1;
+        if (!string.IsNullOrEmpty(_settings.ActiveDeviceGuid))
+            idx = _devices.FindIndex(d => string.Equals(d.Guid, _settings.ActiveDeviceGuid, StringComparison.OrdinalIgnoreCase));
+        if (idx < 0 && _volume is not null)
+            idx = _devices.FindIndex(d => string.Equals(d.Guid, _volume.EndpointGuid, StringComparison.OrdinalIgnoreCase));
         if (idx < 0 && _devices.Count > 0) idx = 0;
         _deviceLoading = true;
         _deviceCombo.SetItems(_devices.Select(d => d.Name), idx);
@@ -785,6 +857,8 @@ public sealed class MainForm : Form, IActionHost
             _volume = AudioEndpointVolume.OpenById(d.Id);
         }
         SyncVolumeFromDevice();
+        _settings.ActiveDeviceGuid = d.Guid;
+        _settings.Save();
         ApplyDeviceProfile();
     }
 
@@ -807,6 +881,67 @@ public sealed class MainForm : Form, IActionHost
             ApplyToUi(current);
             _status.Text = $"New per-device profile for {_volume!.Name}";
         }
+        UpdateAttachmentStatus();
+    }
+
+    /// <summary>Warn (in the status line) when APO isn't attached to the selected device.</summary>
+    private void UpdateAttachmentStatus()
+    {
+        if (_volume is null) return;
+        if (!EqualizerApo.IsAttached(_volume.EndpointGuid))
+        {
+            _status.Text = $"Equalizer APO isn't attached to {_volume.Name} - open its Device Selector, then reboot.";
+            _status.ForeColor = Theme.Accent;
+        }
+    }
+
+    /// <summary>Re-scan endpoints; refresh the selector and recover if the current device vanished.</summary>
+    private void RefreshDevices()
+    {
+        var current = AudioEndpointVolume.ListRenderDevices();
+        var newGuids = current.Select(d => d.Guid).OrderBy(g => g, StringComparer.OrdinalIgnoreCase).ToArray();
+        var oldGuids = _devices.Select(d => d.Guid).OrderBy(g => g, StringComparer.OrdinalIgnoreCase).ToArray();
+        if (newGuids.SequenceEqual(oldGuids)) return;
+
+        string wanted = _volume?.EndpointGuid ?? "";
+        _devices = current.ToList();
+        int idx = _devices.FindIndex(d => string.Equals(d.Guid, wanted, StringComparison.OrdinalIgnoreCase));
+        bool vanished = idx < 0;
+        if (idx < 0) idx = _devices.FindIndex(d => d.Name.Contains("Z Cin", StringComparison.OrdinalIgnoreCase));
+        if (idx < 0 && _devices.Count > 0) idx = 0;
+
+        _deviceLoading = true;
+        _deviceCombo.SetItems(_devices.Select(d => d.Name), idx);
+        _deviceLoading = false;
+        if (idx >= 0 && vanished) SelectDevice(idx);
+    }
+
+    /// <summary>The active device's profile (falls back to the Equalizer APO file).</summary>
+    private ZCinemaProfile CurrentDeviceProfile()
+    {
+        var guid = _volume?.EndpointGuid ?? "";
+        var p = guid.Length > 0 ? _deviceProfiles.Load(guid) : null;
+        return p ?? EqualizerApo.LoadProfile();
+    }
+
+    private void ApplyPreset(string name)
+    {
+        var p = CurrentDeviceProfile();
+        Presets.Apply(p, name);
+        Persist(p);
+        ApplyToUi(p);
+    }
+
+    private bool ApplyCustomSlot(string slot)
+    {
+        var slots = RemoteMap.ReadCustomSlots();
+        if (!slots.TryGetValue(slot, out var c)) return false;
+        var p = CurrentDeviceProfile();
+        p.PreampDb = c.Preamp; p.BassGain = c.Bass; p.SubGain = Math.Round(c.Bass * 0.6, 1);
+        p.TrebleGain = c.Treble; p.DialogGain = c.Dialog; p.Width = c.Width / 100.0; p.EqGains = c.Eq;
+        Persist(p);
+        ApplyToUi(p);
+        return true;
     }
 
     private static Icon LoadAppIcon()

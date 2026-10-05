@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.1.4 — 2026-10-05
+
+- **Remembers the selected device** across restarts, and **refreshes automatically**
+  when audio devices are plugged/unplugged (falls back to the Z Cinéma / first device
+  if the current one disappears).
+- **Per-device APO status:** switching devices re-checks whether Equalizer APO is
+  attached and warns in the status line if it is not.
+- **Tray quick-switch:** a **Presets** submenu (6 presets + Custom 1/2/3), plus
+  **About**, **Start minimized**, **Back up settings…**, **Restore settings…** and
+  **Open data folder**.
+- **Backup & restore:** one `zcinema-backup.json` captures the profile, custom slots,
+  remote bindings, per-device profiles and settings.
+- Housekeeping: fixed a nullable warning in the Remote grid painting.
+
+**Per-device note:** profiles are stored and applied per output device, but Equalizer
+APO 1.4.2 runs a single config (scoped with `Device:` / `If`). Wiring that scoping up
+— with an `Else` fallback so audio can never go silent — is the planned follow-up.
+
 ## v0.1.3 — 2026-10-05
 
 - **Per-device profiles:** each audio device now keeps its own bass/treble/

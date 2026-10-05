@@ -154,7 +154,9 @@ shortcuts. A proper one-file `.exe` is planned — see `docs\ROADMAP.md`.
 The control panel (option 1) is a **tray app**: it also runs the remote bridge,
 so your mapped remote buttons work while it's open. Closing the window keeps it
 in the tray; use **Exit** (tray menu or the Remote tab) to quit, and
-**Start with Windows** in the tray menu to keep mappings active at login.
+**Start with Windows** in the tray menu to keep mappings active at login. The tray
+menu also has a **Presets** submenu (quick switching), **Start minimized**, and
+**Back up / Restore settings…** (one JSON file for everything).
 
 ## Install
 
