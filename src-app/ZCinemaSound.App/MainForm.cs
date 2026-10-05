@@ -209,24 +209,24 @@ public sealed class MainForm : Form, IActionHost
         _soundRoot.Left = 3; _soundRoot.Top = ContentTop; _soundRoot.Width = W - 6; _soundRoot.Height = H - ContentTop - 3;
         _soundRoot.BackColor = Theme.Bg;
 
-        var output = new GlassPanel { Left = 14, Top = 6, Width = 652, Height = 124, Caption = "Output" };
-        RowVolume(output, 30);
-        Row(output, "Ceiling", _preamp, 70);
-        var btnCal = new Button { Text = "Calibrate ceiling...", Left = 482, Top = 90, Width = 160, Height = 26 };
+        var output = new GlassPanel { Left = 14, Top = 6, Width = 652, Height = 146, Caption = "Output" };
+        RowVolume(output, 28);
+        Row(output, "Ceiling", _preamp, 64);
+        _chkMute.Left = 14; _chkMute.Top = 100; _chkMute.BackColor = Color.Transparent; _chkMute.FlatStyle = FlatStyle.Flat;
+        _chkMute.CheckedChanged += (_, _) => { if (!_muting && _volume is not null) _volume.SetMute(_chkMute.Checked); };
+        output.Controls.Add(_chkMute);
+        var btnCal = new Button { Text = "Calibrate ceiling...", Left = 478, Top = 100, Width = 164, Height = 26 };
         Theme.StyleButton(btnCal);
         btnCal.Click += (_, _) => Calibrate();
         output.Controls.Add(btnCal);
-        _chkMute.Left = 330; _chkMute.Top = 90;
-        _chkMute.CheckedChanged += (_, _) => { if (!_muting && _volume is not null) _volume.SetMute(_chkMute.Checked); };
-        output.Controls.Add(_chkMute);
 
-        var tone = new GlassPanel { Left = 14, Top = 136, Width = 652, Height = 192, Caption = "Tone" };
-        Row(tone, "Bass", _bass, 30);
-        Row(tone, "Treble", _treble, 70);
-        Row(tone, "Dialogue", _dialog, 110);
-        Row(tone, "Width", _width, 150);
+        var tone = new GlassPanel { Left = 14, Top = 160, Width = 652, Height = 176, Caption = "Tone" };
+        Row(tone, "Bass", _bass, 28);
+        Row(tone, "Treble", _treble, 62);
+        Row(tone, "Dialogue", _dialog, 96);
+        Row(tone, "Width", _width, 130);
 
-        var eq = new GlassPanel { Left = 14, Top = 336, Width = 652, Height = 236, Caption = "Equalizer" };
+        var eq = new GlassPanel { Left = 14, Top = 344, Width = 652, Height = 240, Caption = "Equalizer" };
         BuildEq(eq);
 
         _soundRoot.Controls.Add(output);
@@ -235,7 +235,7 @@ public sealed class MainForm : Form, IActionHost
 
         _presetSeg.Items = PresetNames;
         _presetSeg.SelectedIndex = -1; // show none until the user picks one
-        _presetSeg.Left = 14; _presetSeg.Top = 580; _presetSeg.Width = 440; _presetSeg.Height = 34;
+        _presetSeg.Left = 14; _presetSeg.Top = 592; _presetSeg.Width = 440; _presetSeg.Height = 34;
         _presetSeg.SelectedIndexChanged += (_, _) =>
         {
             if (_loading || _presetSeg.SelectedIndex < 0) return;
@@ -246,18 +246,18 @@ public sealed class MainForm : Form, IActionHost
         };
         _soundRoot.Controls.Add(_presetSeg);
 
-        var lblSave = new Label { Text = "Save:", Left = 462, Top = 586, Width = 40, ForeColor = Theme.Edge, BackColor = Color.Transparent };
+        var lblSave = new Label { Text = "Save:", Left = 466, Top = 582, Width = 42, ForeColor = Theme.Edge, BackColor = Color.Transparent };
         _soundRoot.Controls.Add(lblSave);
         for (int i = 1; i <= 3; i++)
         {
             int slot = i;
-            var b = new Button { Text = slot.ToString(), Left = 500 + (i - 1) * 46, Top = 582, Width = 40, Height = 28 };
+            var b = new Button { Text = slot.ToString(), Left = 512 + (i - 1) * 44, Top = 578, Width = 40, Height = 28 };
             Theme.StyleButton(b);
             b.Click += (_, _) => SaveCustomSlot(slot.ToString());
             _soundRoot.Controls.Add(b);
         }
 
-        _status.Left = 18; _status.Top = 622; _status.Width = 644; _status.Height = 44;
+        _status.Left = 18; _status.Top = 630; _status.Width = 644; _status.Height = 44;
         _status.ForeColor = Theme.Muted; _status.Font = Theme.ValueFont;
         _soundRoot.Controls.Add(_status);
 
@@ -335,13 +335,14 @@ public sealed class MainForm : Form, IActionHost
         for (int i = 0; i < _eq.Length; i++)
         {
             int x = start + i * step;
-            var freq = new Label { Text = names[i], Left = x, Top = 34, Width = colW, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Edge, BackColor = Color.Transparent, Font = Theme.SectionFont };
-            var track = new LedSlider { Orientation = Orientation.Vertical, Minimum = -12, Maximum = 12, Segments = 13, Left = x, Top = 56, Width = colW, Height = 150 };
+            var freq = new Label { Text = names[i], Left = x, Top = 26, Height = 16, Width = colW, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Edge, BackColor = Color.Transparent, Font = Theme.SectionFont };
+            var track = new LedSlider { Orientation = Orientation.Vertical, Minimum = -12, Maximum = 12, Segments = 13, Left = x + 5, Top = 44, Width = 38, Height = 160 };
             var val = new Label { Text = "0", Left = x, Top = 210, Width = colW, TextAlign = ContentAlignment.MiddleCenter, ForeColor = Theme.Minor, BackColor = Color.Transparent, Font = Theme.ValueFont };
             track.Tag = val;
             track.ValueChanged += (_, _) => { if (!_loading) { UpdateLabels(); _presetSeg.SelectedIndex = -1; _debounce.Stop(); _debounce.Start(); } };
             _eq[i] = track; _eqValue[i] = val;
             parent.Controls.Add(freq); parent.Controls.Add(track); parent.Controls.Add(val);
+            track.BringToFront(); val.BringToFront();
         }
     }
 

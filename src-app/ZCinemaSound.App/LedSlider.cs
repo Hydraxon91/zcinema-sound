@@ -17,8 +17,9 @@ public sealed class LedSlider : Control
 
     public LedSlider()
     {
-        DoubleBuffered = true;
-        BackColor = Theme.Bg;
+        SetStyle(ControlStyles.SupportsTransparentBackColor | ControlStyles.OptimizedDoubleBuffer
+               | ControlStyles.AllPaintingInWmPaint | ControlStyles.UserPaint | ControlStyles.ResizeRedraw, true);
+        BackColor = Color.Transparent;
         TabStop = false;
         Cursor = Cursors.Hand;
         Width = 430;
@@ -66,14 +67,25 @@ public sealed class LedSlider : Control
     {
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.Clear(BackColor);
 
         int n = _segments;
         int idx = IndexFromValue();
-        int margin = R + 3;
+        int margin = Orientation == Orientation.Horizontal ? R + 13 : R + 11;
 
-        // track line
-        using (var pen = new Pen(Theme.Track, 2f))
+        // rounded "capsule" plate behind the bar (the dark bar, now with rounded ends)
+        RectangleF plate = Orientation == Orientation.Horizontal
+            ? new RectangleF(0f, 2f, Width, Height - 4f)
+            : new RectangleF(2f, 1f, Width - 4f, Height - 2f);
+        // rounded plate behind the bar. Horizontal = capsule ends; vertical = modest corners.
+        float radius = Orientation == Orientation.Horizontal ? (Height - 4f) / 2f : 9f;
+        using (var platePath = Theme.RoundedRect(plate, radius))
+        {
+            using (var fill = new SolidBrush(Theme.Plate)) g.FillPath(fill, platePath);
+            using (var edge = new Pen(Color.FromArgb(0x80, Theme.Unlit), 1f)) g.DrawPath(edge, platePath);
+        }
+
+        // track line with rounded (capsule) ends
+        using (var pen = new Pen(Theme.Track, 2f) { StartCap = LineCap.Round, EndCap = LineCap.Round })
         {
             if (Orientation == Orientation.Horizontal)
                 g.DrawLine(pen, margin, Height / 2f, Width - margin, Height / 2f);

@@ -17,6 +17,7 @@ public static class Theme
     public static readonly Color AccentDark = Color.FromArgb(0xAE, 0x49, 0x06);
     public static readonly Color Unlit = Color.FromArgb(0x3A, 0x2A, 0x1A);
     public static readonly Color Track = Color.FromArgb(0x22, 0x18, 0x0E);
+    public static readonly Color Plate = Color.FromArgb(0x0B, 0x09, 0x07);
     public static readonly Color Muted = Color.FromArgb(0xB8, 0xB4, 0xAC);
 
     public static readonly Font TitleFont = new("Segoe UI", 11f, FontStyle.Bold);
